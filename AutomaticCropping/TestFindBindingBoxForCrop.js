@@ -70,7 +70,7 @@ function autotest_execute(test_name, test_image_file_path)
       else
       {
             if (reference_crop_preview.isNull) {
-                  console.warningln("No preview 'CropReference' to test boundaries");
+                  console.warningln("No preview 'ReferenceCrop' to test boundaries");
             }
             else
             {
@@ -78,11 +78,11 @@ function autotest_execute(test_name, test_image_file_path)
                   if (crop_preview.image.width != reference_crop_preview.image.width
                         || crop_preview.image.height != reference_crop_preview.image.height)
                   {
-                        console.warningln("Size of generated crop preview does not match CropReference preview");
+                        console.warningln("Size of generated crop preview does not match preview ReferenceCrop");
                   }
                   else
                   {
-                        console.noteln("Size of generated crop preview matches CropReference preview");
+                        console.noteln("Size of generated crop preview matches preview ReferenceCrop");
                   }
             }
       
