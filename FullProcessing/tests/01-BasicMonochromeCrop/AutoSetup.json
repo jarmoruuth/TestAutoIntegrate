@@ -1,0 +1,50 @@
+{
+  "version": 2,
+  "fileinfo": [
+    {
+      "pageindex": 0,
+      "pagename": "Lights",
+      "files": [
+        [
+          "D:/AITEST/much_reduced/calibrated-test1-20201111-020312-Luminance-BIN2-W-300-001.fit",
+          true
+        ],
+        [
+          "D:/AITEST/much_reduced/calibrated-test1-20201111-031231-Luminance-BIN2-W-300-009.fit",
+          true
+        ],
+        [
+          "D:/AITEST/much_reduced/calibrated-test1-20201111-045850-Luminance-BIN2-W-300-010.fit",
+          true
+        ]
+      ],
+      "filterset": null
+    }
+  ],
+  "settings": [
+    [
+      "Cosmetic correction",
+      true
+    ],
+    [
+      "SubframeSelector",
+      true
+    ],
+    [
+      "Crop to common area",
+      true
+    ],
+    [
+      "Monochrome",
+      true
+    ],
+    [
+      "Extra Darker background",
+      true
+    ],
+    [
+      "Debayer",
+      "None"
+    ]
+  ]
+}

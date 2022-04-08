@@ -29,7 +29,7 @@ var get_process_defaults = false;
 autotest_do_delete_referencecrop_after_check = false; 
 // -----------------------------------------------------------------------------------------
 
-// Automatic configuration of directories relative to the lcoation of the script file.
+// Automatic configuration of directories relative to the location of the script file.
 
 // The directory containing the test xisf files (LowRejectionMap_ALL)
 let autotest_script_path = ( #__FILE__ );        // Absolute path of the current script file
@@ -53,8 +53,8 @@ function autotest_logheader()
             CoreApplication.versionRevision;
       console.noteln("======================================================");
       console.noteln("Automatic test for AutoIntegrate");
-      console.noteln("Script ", File.extractName(autotest_script_path))
-      console.noteln("Script directory ", autotest_script_directory)
+      console.noteln("Script ", File.extractName(autotest_script_path));
+      console.noteln("Script directory ", autotest_script_directory);
       console.noteln("Test data file directory ", autotest_test_rejection_maps_directory);
       console.noteln("Testing the calculation of the crop bounding box");
       console.noteln("for AutoIntegrate " + autointegrate_version + ", PixInsight v" + pixinsight_version_str + ' (' + pixinsight_version_num + ')');
