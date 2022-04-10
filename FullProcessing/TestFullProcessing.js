@@ -146,6 +146,30 @@ function AutoIntegrateTestDialog(test_file)
 
 }
 
+function look_for_errors(resultDirectory)
+{
+      let errors = [];
+      let logFilePath = ensurePathEndSlash(resultDirectory)+'/AutoProcessed/AutoIntegrate.log';
+      if (! File.exists(logFilePath))
+      {
+            errors[errors.length] = "Log file '" + logFilePath + "' not found";
+            return errors;
+      }
+
+      let log_lines = File.readLines( logFilePath);
+      for (let i in log_lines)
+      {
+            let line = log_lines[i];
+            let errorIndex = line.indexOf("Error: ");
+            if (errorIndex>0)
+            {
+                  errors[errors.length]  = line.substring(errorIndex);
+            }
+      }
+      return errors;
+
+}
+
 
 // Execute a single test sequence
 function execute_test(test_name, work_directory, test_specification_file)
@@ -153,6 +177,8 @@ function execute_test(test_name, work_directory, test_specification_file)
       let resultDirectory = ensurePathEndSlash((work_directory+test_name).trim());
       console.noteln("===================================================");
       console.noteln("Executing test '", test_name, "' with results in ", resultDirectory);
+
+      let errors = ["Unknown"];
 
       try {
 
@@ -162,12 +188,16 @@ function execute_test(test_name, work_directory, test_specification_file)
             outputRootDir = resultDirectory;
        
             dialog.execute();
+
+            errors = look_for_errors(resultDirectory);
       
             console.noteln("Test '", test_name, "' completed normally");
       }
        catch (x) {
             console.warningln("Test '", test_name, "in error: ",  x );
+            errors = ["Exception: " + x];
       }
+      return errors;
 }
 
 
@@ -220,9 +250,11 @@ try
                   autotest_test_name_list = all_test_names;
             }
 
+            let test_results = {};
             console.noteln("The following tests will be executed:");
             for (let test_index in autotest_test_name_list)          {
                   let test_name = autotest_test_name_list[test_index];
+                  test_results[test_name] = 'Unknown';
                   console.noteln("    ", test_name);
                   if (! test_name in all_test_names)
                   {
@@ -235,15 +267,25 @@ try
             {
                   let test_name = autotest_test_name_list[test_index];
                   let test_specification = autotest_tests_directory +"/" + test_name +  ".json";
-                  execute_test(test_name, autotest_result_directory, test_specification);
+                  result = execute_test(test_name, autotest_result_directory, test_specification);
+                  test_results[test_name] = result;
             }
 
             console.noteln("-----------------------------------------------------");
             console.noteln("Test results in directory ", autotest_result_directory);
-            console.noteln("   subdirectories:");
             for (let test_index in autotest_test_name_list)          {
                   let test_name = autotest_test_name_list[test_index];
-                  console.noteln("      ",test_name);
+                  let results =  test_results[test_name];
+                  if (results.length == 0)
+                  {
+                        console.noteln("    ",test_name, " ok");
+                  } else {
+                        console.noteln("    ",test_name, ": errors");
+                        for (let error_index in results)
+                        {
+                              console.noteln("         ", results[error_index]);
+                        }
+                  }
             }
 
 
