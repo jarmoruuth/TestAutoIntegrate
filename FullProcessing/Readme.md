@@ -3,18 +3,17 @@
 
 ## Test support mechanism
 
-The test script includes the source of `AutoIntegrate`but disable the execution of `main()` (for example by using a `#define`).
+The test script includes the source of `AutoIntegrate` but disable the execution of `main()` (for example by using a `#define`).
 
 It makes its own initialization (restoring the default parameter values and directories) and
 creates a subclass of the main Dialog of AutoIntegrate that contains the code to automatically populate the file list and
 parameters and execute the test.
 
-The code relies as much as possible on the standard methods of AutoIntegrate. Especialy it uses the `AutoSetup.json` to
-load the file list and parameters. Therefore `AutoIntegrate` can be used to create the `Autosetup.json` specifying the test
-environment.
+The code relies as much as possible on the standard methods of AutoIntegrate. Especialy it uses the format of the
+`AutoSetup.json` to load the file list and parameters. 
+Therefore `AutoIntegrate` can be used to create the `AutoSetup.json` specifying the test environment.
 
-The location of the source image files can be forced to be relative to the test definitions (they are replaced
-at load time), so the test can be at different locations for different users.
+The source images are relative to the test definitions, in a subdirectory `images`.
 
 All tests (or a specific sequence of test) can be run without human intervention, with a new AutoIntegrateDialog
 created for each test.
@@ -32,9 +31,14 @@ operations is successfuly applied. Therefore the images of the testing set can b
 
 ## Test structure
 
-For maximal flexibility, the image files and the test specifications are in different directories, so the same
-images can be used for multiple tests. 
-The execution results must go to a work directory, typically on some temporary storage. It can be configured in the script.
+The tests are in the subdirectory `tests`, each test is a json file in the format of `AutoSetup.json`, but with a name
+describing the test.
+
+The source images can be shared between tests, they are in subdirectories of `tests/images`, so that relative paths can be used.
+
+The location of the result/work files can be configured, by default it is a subdirectory named `results`which is in
+`.gitignore`,  so that the configuration can be immediately used.
+
 
 ### TODO
 
@@ -65,10 +69,9 @@ The test configuration file is a JSON file with the following structure TBD
 ## JSon parameters and file liste files
 
 
-### Example AutoSetup.json
+### Example 01-BasicMonochromeCrop.json
 
-The last directory (much_reduced here) will be the directory where the filles will be
-looeked up in the `images` directory of the project.
+Use relative paths
 
 ```json
     {
@@ -79,15 +82,15 @@ looeked up in the `images` directory of the project.
         "pagename": "Lights",
         "files": [
             [
-            "D:/AITEST/much_reduced/calibrated-test1-20201111-020312-Luminance-BIN2-W-300-001.fit",
+            "images/much_reduced/calibrated-test1-20201111-020312-Luminance-BIN2-W-300-001.fit",
             true
             ],
             [
-            "D:/AITEST/much_reduced/calibrated-test1-20201111-031231-Luminance-BIN2-W-300-009.fit",
+            "images/much_reduced/calibrated-test1-20201111-031231-Luminance-BIN2-W-300-009.fit",
             true
             ],
             [
-            "D:/AITEST/much_reduced/calibrated-test1-20201111-045850-Luminance-BIN2-W-300-010.fit",
+            "images/much_reduced/calibrated-test1-20201111-045850-Luminance-BIN2-W-300-010.fit",
             true
             ]
         ],

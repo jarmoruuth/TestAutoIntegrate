@@ -28,31 +28,29 @@ let autotest_script_directory = autotest_script_path.substring(0,autotest_script
 // *********************************************************************************************
 // *** User overridable parameters
 // *********************************************************************************************
-// the root directoy containng the directories of the tests
-var autotest_test_directory = autotest_script_directory + "tests";
-//var autotest_test_directory = "D:/AI_TESTS"
+// the directoy containing json files of the tests
+// They must be in the format AutoSetup.json but named after the test
+var autotest_tests_directory = autotest_script_directory + "tests";
+//var autotest_tests_directory = "D:/AI_TESTS"
 
-// The root directoy containng the directories of the images
-// ** By default the images are in a directory structure sibling of the tests
-var autotest_image_directory = autotest_script_directory + "images";
-// ** But they can be rooted at any arbizrary location
-// var autotest_image_directory = "D:/AI_TESTS";
-// ** Or even use the absolute path fro the AutoSetup.json (which must be valid !)
-// var autotest_image_directory = null;
+// The images must be in a subdirectory of tests
 
 
-
-// The list of names of test to run
+// The list of tests to run
 // ** if null, all tests are run in sequence
 var autotest_test_name_list = null;
 // ** Or an array of test names must be given, they will be executed in order
-// var autotest_test_name_list = ["02-BasicLRGBcrop"];
+// var autotest_test_name_list = ["01-BasicMonochromeCrop","02-BasicLRGBcrop"];
 
 // Directory where to put the results, it is recommended to clean it before execution
+// ** A directory in the source path, which must be in .gitignore. Make sure that it has enough free space
+var autotest_result_directory = autotest_script_directory+"results/";
 // ** The system directory is always present but may not be convenient and overload the system drive
-// var autotest_work_directory = ensurePathEndSlash(File.systemTempDirectory)+"AutoIntergrateTestResults/";
+// var autotest_result_directory = ensurePathEndSlash(File.systemTempDirectory)+"AutoIntergrateTestResults/";
 // ** Use some specifc location, there should be nothing (except test results) in that directory
-var autotest_work_directory = ensurePathEndSlash("D:/AutoIntergrateTestResults");
+// var autotest_result_directory = "D:/AutoIntergrateTestResults";
+
+autotest_script_directory = ensurePathEndSlash(autotest_script_directory);
 // *********************************************************************************************
 
 
@@ -70,8 +68,8 @@ function autotest_logheader()
       console.noteln("Automatic test for AutoIntegrate");
       console.noteln("Script ", File.extractName(autotest_script_path));
       console.noteln("Script directory ", autotest_script_directory);
-      console.noteln("Test data file directory ", autotest_test_directory);
-      console.noteln("Test work and result directory ", autotest_work_directory);
+      console.noteln("Test data file directory ", autotest_tests_directory);
+      console.noteln("Test work and result directory ", autotest_result_directory);
       console.noteln("Testing complete sequence of operations");
       console.noteln("for AutoIntegrate " + autointegrate_version + ", PixInsight v" + pixinsight_version_str + ' (' + pixinsight_version_num + ')');
       console.noteln("======================================================");
@@ -96,47 +94,6 @@ function autotest_initialize(test_directory)
       ppar.userColumnCount = -1; 
 }
 
-function remap_filepath_directory(image_file_name)
-{
-      // At this point we should only receive arrays of length 2 [file_path, boolean]
-      // Just make sure it is the case
-      if (Array.isArray(image_file_name)) {
-            if (image_file_name.length != 2)
-            {
-                  throwFatalError("Unexpected arrays length for image_file_name");
-            }
-       } else {
-            throwFatalError("Unexpected treebox object for image_file_name");;
-      }
-      [file_path, selection] = image_file_name;
-
-      // Extract the file and the last directory
-      let name_and_extension = File.extractNameAndExtension(file_path);
-      let last_directory = File.extractName(File.extractDirectory(file_path));
-      if (debug) console.writeln("DEBUG remap_filepath_directory ",last_directory, " / ",name_and_extension);
-
-      let new_file_path = ensurePathEndSlash(autotest_image_directory) + ensurePathEndSlash(last_directory) + name_and_extension;
-
-      console.writeln("Remap path '", file_path, "' to '", new_file_path, "'");
-      return [new_file_path, selection];
-}
-
-
-
-// Remap the directory of all image files to support relative directories
-function remap_pagearray_directory(pagearray)
-{
-      for (let i = 0; i < pagearray.length; i++) {
-            if (pagearray[i] != null) {
-                  let filelist = pagearray[i];
-                  for (let j = 0; j < filelist.length; j++)
-                  {
-                        let imageFileName = filelist[j];
-                        filelist[j] = remap_filepath_directory(imageFileName);                        
-                  }
-            }
-      }
-}
 
 // -----------------------------------------------------------------------------------------
 
@@ -164,10 +121,10 @@ function AutoIntegrateTestDialog(test_file)
             console.noteln("onExecute() for test '", this.test_file, '", loading parameters and file list');
             var pagearray = parseJsonFile(this.test_file, false);
 
-            if (autotest_image_directory != null)
-            {
-                  remap_pagearray_directory(pagearray);
-            }
+            // if (autotest_image_directory != null)
+            // {
+            //       remap_pagearray_directory(pagearray);
+            // }
 
             for (var i = 0; i < pagearray.length; i++) {
                   if (pagearray[i] != null) {
@@ -209,7 +166,7 @@ function execute_test(test_name, work_directory, test_specification_file)
             console.noteln("Test '", test_name, "' completed normally");
       }
        catch (x) {
-            console.warnln("Test '", test_name, "in error: ",  x );
+            console.warningln("Test '", test_name, "in error: ",  x );
       }
 }
 
@@ -224,41 +181,42 @@ try
 
       // Create or check directories
       // Output directory
-      if (!File.directoryExists(autotest_work_directory))
+      if (!File.directoryExists(autotest_result_directory))
       {
-            File.createDirectory(autotest_work_directory,false);
-            console.noteln("Directory '", autotest_work_directory,"' created");
+            File.createDirectory(autotest_result_directory,false);
+            console.noteln("Directory '", autotest_result_directory,"' created");
       }
 
-      if (!File.directoryExists(autotest_test_directory))
+      if (!File.directoryExists(autotest_tests_directory))
       {
-            throwFatalError("Test directory '", autotest_test_directory,"' does not exists");
+            throwFatalError("Test directory '", autotest_tests_directory,"' does not exists");
       }
 
-      let autotest_test_directories = searchDirectory( autotest_test_directory+"/AutoSetup.json", true );
-      if (autotest_test_directories.length == 0) 
+ 
+      let autotest_test_files = searchDirectory( autotest_tests_directory+"/*.json", false );
+      if (autotest_test_files.length == 0) 
       {
-            console.warnln("No subdirectory with file 'AutoSetup.json' in '", autotest_test_directory, "'");
+            console.warningln("No '*.json' file in '", autotest_tests_directory, "'");
       }
       else 
       {
-            console.noteln(autotest_test_directories.length, " test in ", autotest_test_directory);
+            console.noteln(autotest_test_files.length, " test in ", autotest_tests_directory);
  
             // Get list of all known tests
             let all_test_names = [];
-            for (let test_index in autotest_test_directories)
+            for (let test_index in autotest_test_files)
             {
-                  let test_specification = autotest_test_directories[test_index];
-                  let test_directory = File.extractDirectory(test_specification);
-                  let test_name = File.extractName(test_directory);
+                  let test_specification = autotest_test_files[test_index];
+                  let test_name = File.extractName(test_specification);
                   all_test_names[all_test_names.length] = test_name;
                   if (debug) console.writeln("DEBUG - known test: ", test_name);
             }
 
+
             // If we have no specified test to execute, execute all known tests
             if (autotest_test_name_list == null)
             {
-                  console.writeln("autotest_test_name_list not defined, executing all tests");
+                  console.writeln("'autotest_test_name_list' not defined, executing all tests");
                   autotest_test_name_list = all_test_names;
             }
 
@@ -268,7 +226,7 @@ try
                   console.noteln("    ", test_name);
                   if (! test_name in all_test_names)
                   {
-                        throwFatalError("Requested test '"+ test_name + "' not in '" + autotest_test_directory + "'")
+                        throwFatalError("Requested test '"+ test_name + "' not in '" + autotest_tests_directory + "'")
                   }
             }
 
@@ -276,12 +234,18 @@ try
             for (let test_index in autotest_test_name_list)
             {
                   let test_name = autotest_test_name_list[test_index];
-                  let test_specification = autotest_test_directory +"/" + test_name + "/" + "/AutoSetup.json";
-                  execute_test(test_name, autotest_work_directory, test_specification);
+                  let test_specification = autotest_tests_directory +"/" + test_name +  ".json";
+                  execute_test(test_name, autotest_result_directory, test_specification);
             }
 
             console.noteln("-----------------------------------------------------");
-            console.noteln("Test results in directory ", autotest_work_directory);
+            console.noteln("Test results in directory ", autotest_result_directory);
+            console.noteln("   subdirectories:");
+            for (let test_index in autotest_test_name_list)          {
+                  let test_name = autotest_test_name_list[test_index];
+                  console.noteln("      ",test_name);
+            }
+
 
       }
 

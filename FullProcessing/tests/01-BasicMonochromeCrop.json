@@ -6,15 +6,15 @@
       "pagename": "Lights",
       "files": [
         [
-          "D:/AITEST/much_reduced/calibrated-test1-20201111-020312-Luminance-BIN2-W-300-001.fit",
+          "images/much_reduced/calibrated-test1-20201111-020312-Luminance-BIN2-W-300-001.fit",
           true
         ],
         [
-          "D:/AITEST/much_reduced/calibrated-test1-20201111-031231-Luminance-BIN2-W-300-009.fit",
+          "images/much_reduced/calibrated-test1-20201111-031231-Luminance-BIN2-W-300-009.fit",
           true
         ],
         [
-          "D:/AITEST/much_reduced/calibrated-test1-20201111-045850-Luminance-BIN2-W-300-010.fit",
+          "images/much_reduced/calibrated-test1-20201111-045850-Luminance-BIN2-W-300-010.fit",
           true
         ]
       ],
