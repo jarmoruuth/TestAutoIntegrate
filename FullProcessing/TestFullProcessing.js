@@ -172,7 +172,7 @@ function look_for_errors(resultDirectory)
 
 
 // Execute a single test sequence
-function execute_test(test_name, work_directory, test_specification_file)
+function execute_test(test_name, work_directory, autosetup_file_path, control_file_path)
 {
       let resultDirectory = ensurePathEndSlash((work_directory+test_name).trim());
       console.noteln("===================================================");
@@ -184,7 +184,7 @@ function execute_test(test_name, work_directory, test_specification_file)
 
             autotest_initialize(work_directory);
       
-            var dialog = new AutoIntegrateTestDialog(test_specification_file);
+            var dialog = new AutoIntegrateTestDialog(autosetup_file_path);
             outputRootDir = resultDirectory;
        
             dialog.execute();
@@ -205,6 +205,93 @@ AutoIntegrateTestDialog.prototype = new AutoIntegrateDialog();
 
 // -----------------------------------------------------------------------------------------
 
+function load_test_specifications(autotest_tests_directory, autotest_test_name_list)
+{
+      if (!File.directoryExists(autotest_tests_directory))
+      {
+            throwFatalError("Test directory '", autotest_tests_directory,"' does not exists");
+      }
+
+ 
+      let all_autotest_test_files = searchDirectory( autotest_tests_directory+"/*.json", false );
+      if (all_autotest_test_files.length == 0) 
+      {
+            console.warningln("No '*.json' file in '", autotest_tests_directory, "'");
+      }
+
+ 
+      // Separate test files from control files
+      let autotest_test_files = {}; // test name -> path
+      let autotest_control_files = {}; // test name -> path
+      let all_test_names = []; // in order
+
+      for (let test_index in all_autotest_test_files)
+      {
+            let test_test_file_path = all_autotest_test_files[test_index];
+            let test_file_name = File.extractName(test_test_file_path);
+            if (test_file_name.endsWith('_control'))
+            {
+                  let test_name = test_file_name.test_file_name.substring(0, test_file_name.length-'_control'.length); // Name of file without _control
+                  autotest_control_files[test_name] = test_test_file_path;
+            }
+            else 
+            {
+                  let test_name = test_file_name;  // Name of file
+                  autotest_test_files[test_name] = test_test_file_path;
+                  all_test_names[all_test_names.length] = test_name;
+            }
+
+      }
+
+      if (all_test_names.length == 0) 
+      {
+            console.warningln("No test '*.json' file in '", autotest_tests_directory, "', likely only *_control.json");
+      }
+
+      all_test_names.sort(); // Ensure default is sorted independ of the operating system
+
+      // Check that all _control file have a matching test file
+      let autotest_control_keys = autotest_control_files.keys;
+      for (let control_index in autotest_control_keys)
+      {
+            let control_test_name = autotest_control_keys[control_index];
+            if (! control_test_name in autotest_test_files)
+            {
+                  console.warningln("Control file '", autotest_control_files[control_test_name], 
+                  " does not have matching test file, control file will be ignored");
+            }
+      }
+
+      // autotest_test_name_list, may be in a specific order
+      if (autotest_test_name_list == null)
+      {
+            console.writeln("'autotest_test_name_list' not defined, selecting all tests");
+            autotest_test_name_list = all_test_names;
+      }
+
+      let tests_to_execute = {}; // test_name -> [autosetup, control or null]
+      console.noteln("The following tests will be executed:");
+      for (let test_index in autotest_test_name_list)          {
+            let requested_test_name = autotest_test_name_list[test_index];
+            let control_file_path = (requested_test_name in autotest_control_files) ? autotest_control_files[requested_test_name] : null;
+            let with_control = (control_file_path==null ? "": " WITH CONTROL");
+            console.noteln("    ", requested_test_name, " ", with_control);
+            if (! requested_test_name in all_test_names)
+            {
+                  throwFatalError("Requested test '"+ test_name + "' not in '" + autotest_tests_directory + "'")
+            }
+            let test_specification = [autotest_test_files[requested_test_name],  control_file_path];
+            tests_to_execute[requested_test_name] = test_specification;
+      }
+
+      console.writeln("TTE ", tests_to_execute.length, " ", tests_to_execute);
+      // Return list of test names to keep desired order
+      return [autotest_test_name_list, tests_to_execute];
+
+
+}
+// -----------------------------------------------------------------------------------------
+
 try
       {
       autotest_logheader();
@@ -217,79 +304,47 @@ try
             console.noteln("Directory '", autotest_result_directory,"' created");
       }
 
-      if (!File.directoryExists(autotest_tests_directory))
+
+      let [autotest_test_name_list, tests_to_execute] = load_test_specifications(autotest_tests_directory);
+      console.writeln(tests_to_execute);
+   
+      // Prepare result array
+      let test_results = {};
+      for (let test_index in autotest_test_name_list) 
       {
-            throwFatalError("Test directory '", autotest_tests_directory,"' does not exists");
+            let test_name = autotest_test_name_list[test_index];
+            test_results[test_name] = 'Unknown';
       }
 
  
-      let autotest_test_files = searchDirectory( autotest_tests_directory+"/*.json", false );
-      if (autotest_test_files.length == 0) 
+      // Execute tests
+      for (let test_index in autotest_test_name_list)
       {
-            console.warningln("No '*.json' file in '", autotest_tests_directory, "'");
-      }
-      else 
-      {
-            console.noteln(autotest_test_files.length, " test in ", autotest_tests_directory);
+            let test_name = autotest_test_name_list[test_index];
+            let test_specification = tests_to_execute[test_name];
+            let [autosetup_file_path,  control_file_path] = test_specification;
  
-            // Get list of all known tests
-            let all_test_names = [];
-            for (let test_index in autotest_test_files)
-            {
-                  let test_specification = autotest_test_files[test_index];
-                  let test_name = File.extractName(test_specification);
-                  all_test_names[all_test_names.length] = test_name;
-                  if (debug) console.writeln("DEBUG - known test: ", test_name);
-            }
-
-
-            // If we have no specified test to execute, execute all known tests
-            if (autotest_test_name_list == null)
-            {
-                  console.writeln("'autotest_test_name_list' not defined, executing all tests");
-                  autotest_test_name_list = all_test_names;
-            }
-
-            let test_results = {};
-            console.noteln("The following tests will be executed:");
-            for (let test_index in autotest_test_name_list)          {
-                  let test_name = autotest_test_name_list[test_index];
-                  test_results[test_name] = 'Unknown';
-                  console.noteln("    ", test_name);
-                  if (! test_name in all_test_names)
-                  {
-                        throwFatalError("Requested test '"+ test_name + "' not in '" + autotest_tests_directory + "'")
-                  }
-            }
-
-            // Execute tests
-            for (let test_index in autotest_test_name_list)
-            {
-                  let test_name = autotest_test_name_list[test_index];
-                  let test_specification = autotest_tests_directory +"/" + test_name +  ".json";
-                  result = execute_test(test_name, autotest_result_directory, test_specification);
-                  test_results[test_name] = result;
-            }
-
-            console.noteln("-----------------------------------------------------");
-            console.noteln("Test results in directory ", autotest_result_directory);
-            for (let test_index in autotest_test_name_list)          {
-                  let test_name = autotest_test_name_list[test_index];
-                  let results =  test_results[test_name];
-                  if (results.length == 0)
-                  {
-                        console.noteln("    ",test_name, " ok");
-                  } else {
-                        console.noteln("    ",test_name, ": errors");
-                        for (let error_index in results)
-                        {
-                              console.noteln("         ", results[error_index]);
-                        }
-                  }
-            }
-
-
+            result = execute_test(test_name, autotest_result_directory, autosetup_file_path, control_file_path);
+            test_results[test_name] = result;
       }
+
+      console.noteln("-----------------------------------------------------");
+      console.noteln("Test results in directory ", autotest_result_directory);
+      for (let test_index in autotest_test_name_list)          {
+            let test_name = autotest_test_name_list[test_index];
+            let results =  test_results[test_name];
+            if (results.length == 0)
+            {
+                  console.noteln("    ",test_name, " ok");
+            } else {
+                  console.noteln("    ",test_name, ": errors");
+                  for (let error_index in results)
+                  {
+                        console.noteln("         ", results[error_index]);
+                  }
+            }
+      }
+
 
 }
 catch (x) {
