@@ -41,6 +41,7 @@ var autotest_tests_directory = autotest_script_directory + "tests";
 var autotest_test_name_list = null;
 // ** Or an array of test names must be given, they will be executed in order
 // var autotest_test_name_list = ["01-BasicMonochromeCrop","02-BasicLRGBcrop"];
+// var autotest_test_name_list = ["01-BasicMonochromeCrop"];
 
 // Directory where to put the results, it is recommended to clean it before execution
 // ** A directory in the source path, which must be in .gitignore. Make sure that it has enough free space
@@ -103,6 +104,8 @@ function AutoIntegrateTestDialog(test_file, command_list)
       this.__base__ = AutoIntegrateDialog;
       this.__base__();
       this.test_file = test_file;
+      this.command_list = command_list;
+      this.test_name = File.extractName(this.test_file);
 
       // Time used to close the window as a direct call does not work
       this.cancelTimer = new Timer( 2, false );
@@ -118,8 +121,8 @@ function AutoIntegrateTestDialog(test_file, command_list)
       // Called when the Dialo is executed and take over control
       this.onExecute = function(h)
       {
-            console.noteln("onExecute() for test '", this.test_file, '", loading parameters and file list');
-            var pagearray = parseJsonFile(this.test_file, false);
+            console.noteln("onExecute() for test '", test_name, '", loading file list and settings from ', this.test_file);
+             var pagearray = parseJsonFile(this.test_file, false);
 
             for (var i = 0; i < pagearray.length; i++) {
                   if (pagearray[i] != null) {
@@ -128,16 +131,63 @@ function AutoIntegrateTestDialog(test_file, command_list)
             }
             updateInfoLabel(this);
 
+            for (command_index in this.command_list)
+            {
+                  let command = command_list[command_index];
+                  console.noteln("Test: ", this.test_name, " executing ",(command_index+1).toString(), ": ", command);
+                  this.autoexec_execute_command(command);
+            }
 
-            console.noteln("Closing all prefix windows");
-            closeAllPrefixButton.onClick();
+      }
 
-            console.noteln("Executing Run on test data");
-            this.run_Button.onClick();
+      // TODO refactor actions in methods
+      this.autoexec_execute_command = function(command)
+      {
+            let command_name = command[0];
+            switch (command_name)
+            {
+                  case 'closeAllPrefix':
+                        console.noteln("Test: Closing all prefix windows");
+                        closeAllPrefixButton.onClick();
+                        break;
+                        
+                  case 'setPar':
+                              let param = command[1];
+                              let value = param[2];
+                              console.noteln("Test: Set parameter ", param, " to ", value);
+                              if (par.hasOwnProperty(param))
+                              {
+                                    // TODO check type
+                                    par[param].val = value;
+                              }
+                              else
+                              {
+                                    // TODO Log to error, option to exit
+                                    console.warningln("Test: Unknown parameter '", param, "' set ignored");
+                              }
+                              break;
+      
+                  case 'run': 
+                        // TODO note that the log must be explored
+                        console.noteln("Test: Executing 'Run' on test data");
+                        this.run_Button.onClick();
+                        break;
 
-            console.noteln("Test run completed, removing window in 2 seconds");
+                  case 'continue': 
+                        // TODO note that the log must be explored
+                        console.noteln("Test: Executing autoContinue on test data");
+                        this.autoContinueButton.onClick();
+                        break;
 
-            this.cancelTimer.start();
+                  case 'exit':
+                        console.noteln("Test: Run completed, removing window in 2 seconds");
+                        this.cancelTimer.start();
+                        break;
+                        
+                  default:
+                        // TODO Log to error, option to exit
+                        console.warningln("Test: Unknown command '", command_name, "' ignored");         
+            }
       }
 
 }
@@ -162,26 +212,31 @@ function look_for_errors(resultDirectory)
             let errorIndex = line.indexOf("Error: ");
             if (errorIndex>0)
             {
-                  errors[errors.length]  = line.substring(errorIndex);
+                  errors[errors.length]  = "log - " + line.substring(errorIndex);
             }
       }
       return errors;
 
 }
 
-
-function load_control(control_file_path)
+// Load the list of commands if present, return a default list if missing
+function load_command_list(control_file_path)
 {
+      if (control_file_path == null)
+      {
+            return [["closeAllPrefix"],["run"], ["exit"]];
+      }
+
       try {
             let control_text = File.readTextFile(control_file_path);
             let control = JSON.parse(control_text);
-            return control;
+            return control.commands;
       } catch (x)
       {
             console.warningln("Could not parse JSON in control file ", control_file_path);
             console.warningln("     error ", x);
-            console.warningln("     control commands are ignored");
-            return null;
+            console.warningln("     test not executed");
+            return [["error", "Error " + x + " loading " + control_file_path]];
       }
 }
 
@@ -192,11 +247,7 @@ function execute_test(test_name, work_directory, autosetup_file_path, control_fi
       console.noteln("===================================================");
       console.noteln("Executing test '", test_name, "' with results in ", resultDirectory);
 
-      let command_list = null;
-      if (control_file_path != null)
-      {
-            command_list = load_control(control_file_path);
-      }
+      let command_list = load_command_list(control_file_path);
 
       let errors = ["Unknown"];
 
@@ -223,7 +274,7 @@ function execute_test(test_name, work_directory, autosetup_file_path, control_fi
 
 // -----------------------------------------------------------------------------------------
 
-function load_test_specifications(autotest_tests_directory, autotest_test_name_list)
+function load_test_specifications(autotest_tests_directory)
 {
       if (!File.directoryExists(autotest_tests_directory))
       {
@@ -281,16 +332,20 @@ function load_test_specifications(autotest_tests_directory, autotest_test_name_l
       }
 
       // autotest_test_name_list, may be in a specific order
+      let requested_test_name_list = [];
       if (autotest_test_name_list == null)
       {
             console.writeln("'autotest_test_name_list' not defined, selecting all tests");
-            autotest_test_name_list = all_test_names;
+            requested_test_name_list = all_test_names;
+      }
+      else {
+            requested_test_name_list = autotest_test_name_list;
       }
 
       let tests_to_execute = {}; // test_name -> [autosetup, control or null]
       console.noteln("The following tests will be executed:");
-      for (let test_index in autotest_test_name_list)          {
-            let requested_test_name = autotest_test_name_list[test_index];
+      for (let test_index in requested_test_name_list)          {
+            let requested_test_name = requested_test_name_list[test_index];
             let control_file_path = (requested_test_name in autotest_control_files) ? autotest_control_files[requested_test_name] : null;
             let with_control = (control_file_path==null ? "": " WITH CONTROL");
             console.noteln("    ", requested_test_name, " ", with_control);
@@ -303,7 +358,7 @@ function load_test_specifications(autotest_tests_directory, autotest_test_name_l
       }
 
       // Return list of test names to keep desired order
-      return [autotest_test_name_list, tests_to_execute];
+      return [requested_test_name_list, tests_to_execute];
 
 
 }
@@ -322,22 +377,22 @@ try
       }
 
 
-      let [autotest_test_name_list, tests_to_execute] = load_test_specifications(autotest_tests_directory);
+      let [requested_test_name_list, tests_to_execute] = load_test_specifications(autotest_tests_directory);
       console.writeln(tests_to_execute);
    
       // Prepare result array
       let test_results = {};
-      for (let test_index in autotest_test_name_list) 
+      for (let test_index in requested_test_name_list) 
       {
-            let test_name = autotest_test_name_list[test_index];
+            let test_name = requested_test_name_list[test_index];
             test_results[test_name] = 'Unknown';
       }
 
  
       // Execute tests
-      for (let test_index in autotest_test_name_list)
+      for (let test_index in requested_test_name_list)
       {
-            let test_name = autotest_test_name_list[test_index];
+            let test_name = requested_test_name_list[test_index];
             let test_specification = tests_to_execute[test_name];
             let [autosetup_file_path,  control_file_path] = test_specification;
  
@@ -347,8 +402,8 @@ try
 
       console.noteln("-----------------------------------------------------");
       console.noteln("Test results in directory ", autotest_result_directory);
-      for (let test_index in autotest_test_name_list)          {
-            let test_name = autotest_test_name_list[test_index];
+      for (let test_index in requested_test_name_list)          {
+            let test_name = requested_test_name_list[test_index];
             let results =  test_results[test_name];
             if (results.length == 0)
             {

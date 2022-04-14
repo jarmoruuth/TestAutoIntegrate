@@ -1,7 +1,11 @@
 {
   "version": 1,
   "commands": [
+    ["closeAllPrefix"],
     ["run"],
+    ["setPar", "extra_darker_background", true],
+    ["setPar", "crop_to_common_area", false],
+    ["continue"],
     ["exit"]
   ]
     
