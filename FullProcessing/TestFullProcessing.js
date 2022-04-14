@@ -98,7 +98,7 @@ function autotest_initialize(test_directory)
 // -----------------------------------------------------------------------------------------
 
 // A subclass of AutoIntegrateDialog created for each test to execute the specific test file
-function AutoIntegrateTestDialog(test_file)
+function AutoIntegrateTestDialog(test_file, command_list)
 {
       this.__base__ = AutoIntegrateDialog;
       this.__base__();
@@ -121,17 +121,13 @@ function AutoIntegrateTestDialog(test_file)
             console.noteln("onExecute() for test '", this.test_file, '", loading parameters and file list');
             var pagearray = parseJsonFile(this.test_file, false);
 
-            // if (autotest_image_directory != null)
-            // {
-            //       remap_pagearray_directory(pagearray);
-            // }
-
             for (var i = 0; i < pagearray.length; i++) {
                   if (pagearray[i] != null) {
                         addFilesToTreeBox(this, i, pagearray[i]);
                   }
             }
             updateInfoLabel(this);
+
 
             console.noteln("Closing all prefix windows");
             closeAllPrefixButton.onClick();
@@ -145,6 +141,9 @@ function AutoIntegrateTestDialog(test_file)
       }
 
 }
+
+AutoIntegrateTestDialog.prototype = new AutoIntegrateDialog();
+
 
 function look_for_errors(resultDirectory)
 {
@@ -171,6 +170,21 @@ function look_for_errors(resultDirectory)
 }
 
 
+function load_control(control_file_path)
+{
+      try {
+            let control_text = File.readTextFile(control_file_path);
+            let control = JSON.parse(control_text);
+            return control;
+      } catch (x)
+      {
+            console.warningln("Could not parse JSON in control file ", control_file_path);
+            console.warningln("     error ", x);
+            console.warningln("     control commands are ignored");
+            return null;
+      }
+}
+
 // Execute a single test sequence
 function execute_test(test_name, work_directory, autosetup_file_path, control_file_path)
 {
@@ -178,13 +192,19 @@ function execute_test(test_name, work_directory, autosetup_file_path, control_fi
       console.noteln("===================================================");
       console.noteln("Executing test '", test_name, "' with results in ", resultDirectory);
 
+      let command_list = null;
+      if (control_file_path != null)
+      {
+            command_list = load_control(control_file_path);
+      }
+
       let errors = ["Unknown"];
 
       try {
 
             autotest_initialize(work_directory);
       
-            var dialog = new AutoIntegrateTestDialog(autosetup_file_path);
+            var dialog = new AutoIntegrateTestDialog(autosetup_file_path, command_list);
             outputRootDir = resultDirectory;
        
             dialog.execute();
@@ -200,8 +220,6 @@ function execute_test(test_name, work_directory, autosetup_file_path, control_fi
       return errors;
 }
 
-
-AutoIntegrateTestDialog.prototype = new AutoIntegrateDialog();
 
 // -----------------------------------------------------------------------------------------
 
@@ -231,7 +249,7 @@ function load_test_specifications(autotest_tests_directory, autotest_test_name_l
             let test_file_name = File.extractName(test_test_file_path);
             if (test_file_name.endsWith('_control'))
             {
-                  let test_name = test_file_name.test_file_name.substring(0, test_file_name.length-'_control'.length); // Name of file without _control
+                  let test_name = test_file_name.substring(0, test_file_name.length-'_control'.length); // Name of file without _control
                   autotest_control_files[test_name] = test_test_file_path;
             }
             else 
@@ -284,7 +302,6 @@ function load_test_specifications(autotest_tests_directory, autotest_test_name_l
             tests_to_execute[requested_test_name] = test_specification;
       }
 
-      console.writeln("TTE ", tests_to_execute.length, " ", tests_to_execute);
       // Return list of test names to keep desired order
       return [autotest_test_name_list, tests_to_execute];
 
