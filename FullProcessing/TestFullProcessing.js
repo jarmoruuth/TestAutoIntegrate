@@ -41,7 +41,7 @@ var autotest_tests_directory = autotest_script_directory + "tests";
 var autotest_test_name_list = null;
 // ** Or an array of test names must be given, they will be executed in order
 // var autotest_test_name_list = ["01-BasicMonochromeCrop","02-BasicLRGBcrop"];
-// var autotest_test_name_list = ["01-BasicMonochromeCrop"];
+autotest_test_name_list = ["01-BasicMonochromeCrop"];
 
 // Directory where to put the results, it is recommended to clean it before execution
 // ** A directory in the source path, which must be in .gitignore. Make sure that it has enough free space
@@ -119,10 +119,10 @@ function AutoIntegrateTestDialog(test_file, command_list)
 
 
       // Called when the Dialo is executed and take over control
-      this.onExecute = function(h)
+      this.onExecute = function()
       {
-            console.noteln("onExecute() for test '", test_name, '", loading file list and settings from ', this.test_file);
-             var pagearray = parseJsonFile(this.test_file, false);
+            console.noteln("onExecute() for test '", this.test_name, '", loading file list and settings from ', this.test_file);
+            var pagearray = parseJsonFile(this.test_file, false);
 
             for (var i = 0; i < pagearray.length; i++) {
                   if (pagearray[i] != null) {
@@ -130,63 +130,87 @@ function AutoIntegrateTestDialog(test_file, command_list)
                   }
             }
             updateInfoLabel(this);
-
-            for (command_index in this.command_list)
+ 
+            for (let command_index in this.command_list)
             {
-                  let command = command_list[command_index];
-                  console.noteln("Test: ", this.test_name, " executing ",(command_index+1).toString(), ": ", command);
-                  this.autoexec_execute_command(command);
+                  let command = this.command_list[command_index];
+                  let commandNmb = 1+parseInt(command_index);
+                  console.noteln("Test: ", this.test_name, " executing ",commandNmb, ": ", command);
+                  this.autotest_execute_command(command);
             }
 
       }
 
-      // TODO refactor actions in methods
-      this.autoexec_execute_command = function(command)
+      this.autotest_commands = {
+            'closeAllPrefix': function(autoIntegrateDialog, command) {
+                  console.noteln("Test: Closing all prefix windows");
+                  // Not in 'this', for whatever reason
+                  closeAllPrefixButton.onClick();
+            },
+
+                  
+            'setPar': function(autoIntegrateDialog, command) {
+                  let param = command[1];
+                  let value = param[2];
+                  console.noteln("Test: Set parameter ", param, " to ", value);
+                  if (par.hasOwnProperty(param))
+                  {
+                        // TODO check type
+                        par[param].val = value;
+                  }
+                  else
+                  {
+                        // TODO Log to error, option to exit
+                        console.warningln("Test: Unknown parameter '", param, "' set ignored");
+                  }
+            },
+                  
+            'setPrefix': function(autoIntegrateDialog, command) {
+                  let prefix = command[1];
+                  console.noteln("Test: Set prefix to ", prefix);
+                  ppar.win_prefix = prefix;
+            },
+
+            'setLastDir': function(autoIntegrateDialog, command) {
+                  let lastDir = command[1];
+                  console.noteln("Test: Set lastDir to ", lastDir);
+                  ppar.lastDir = lastDir;
+            },
+
+            'setOutputRootDir': function(autoIntegrateDialog, command) {
+                  let outputDir = command[1];
+                  console.noteln("Test: Set outputRootDir to ", outputDir);
+                  outputRootDir = outputDir;
+            },
+
+
+            'run': function(autoIntegrateDialog, command) {
+                  // TODO note that the log must be explored
+                  console.noteln("Test: Executing 'Run' on test data");
+                  autoIntegrateDialog.run_Button.onClick();
+            },
+
+            'continue': function(autoIntegrateDialog, command) {
+                  // TODO note that the log must be explored
+                  console.noteln("Test: Executing autoContinue on test data");
+                  autoIntegrateDialog.autoContinueButton.onClick();
+            },
+
+            'exit': function(autoIntegrateDialog, command) {
+                  console.noteln("Test: Run completed, removing window in 2 seconds");
+                  autoIntegrateDialog.cancelTimer.start();
+            },
+      }
+
+       this.autotest_execute_command = function(command)
       {
             let command_name = command[0];
-            switch (command_name)
-            {
-                  case 'closeAllPrefix':
-                        console.noteln("Test: Closing all prefix windows");
-                        closeAllPrefixButton.onClick();
-                        break;
-                        
-                  case 'setPar':
-                              let param = command[1];
-                              let value = param[2];
-                              console.noteln("Test: Set parameter ", param, " to ", value);
-                              if (par.hasOwnProperty(param))
-                              {
-                                    // TODO check type
-                                    par[param].val = value;
-                              }
-                              else
-                              {
-                                    // TODO Log to error, option to exit
-                                    console.warningln("Test: Unknown parameter '", param, "' set ignored");
-                              }
-                              break;
-      
-                  case 'run': 
-                        // TODO note that the log must be explored
-                        console.noteln("Test: Executing 'Run' on test data");
-                        this.run_Button.onClick();
-                        break;
-
-                  case 'continue': 
-                        // TODO note that the log must be explored
-                        console.noteln("Test: Executing autoContinue on test data");
-                        this.autoContinueButton.onClick();
-                        break;
-
-                  case 'exit':
-                        console.noteln("Test: Run completed, removing window in 2 seconds");
-                        this.cancelTimer.start();
-                        break;
-                        
-                  default:
-                        // TODO Log to error, option to exit
-                        console.warningln("Test: Unknown command '", command_name, "' ignored");         
+            if (command_name in this.autotest_commands) {
+                  let command_function = this.autotest_commands[command_name];
+                  command_function(this, command);
+            } else {
+                  // TODO Log to error, option to exit
+                  console.warningln("Test: Unknown command '", command_name, "' ignored");         
             }
       }
 
@@ -335,7 +359,7 @@ function load_test_specifications(autotest_tests_directory)
       let requested_test_name_list = [];
       if (autotest_test_name_list == null)
       {
-            console.writeln("'autotest_test_name_list' not defined, selecting all tests");
+            console.noteln("'autotest_test_name_list' not defined, selecting all tests");
             requested_test_name_list = all_test_names;
       }
       else {
@@ -351,7 +375,7 @@ function load_test_specifications(autotest_tests_directory)
             console.noteln("    ", requested_test_name, " ", with_control);
             if (! requested_test_name in all_test_names)
             {
-                  throwFatalError("Requested test '"+ test_name + "' not in '" + autotest_tests_directory + "'")
+                  throwFatalError("Requested test '"+ requested_test_name + "' not in '" + autotest_tests_directory + "'")
             }
             let test_specification = [autotest_test_files[requested_test_name],  control_file_path];
             tests_to_execute[requested_test_name] = test_specification;
@@ -378,8 +402,7 @@ try
 
 
       let [requested_test_name_list, tests_to_execute] = load_test_specifications(autotest_tests_directory);
-      console.writeln(tests_to_execute);
-   
+     
       // Prepare result array
       let test_results = {};
       for (let test_index in requested_test_name_list) 
@@ -396,7 +419,7 @@ try
             let test_specification = tests_to_execute[test_name];
             let [autosetup_file_path,  control_file_path] = test_specification;
  
-            result = execute_test(test_name, autotest_result_directory, autosetup_file_path, control_file_path);
+            let result = execute_test(test_name, autotest_result_directory, autosetup_file_path, control_file_path);
             test_results[test_name] = result;
       }
 
@@ -420,7 +443,7 @@ try
 
 }
 catch (x) {
-      console.writeln( x );
+      console.writeln( "Error: " + x );
 }
 
 console.noteln("TestAutoIntegrate terminated");
