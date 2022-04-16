@@ -1,0 +1,7 @@
+# auto_test_tests.txt
+
+# List of tests files, absolute or relative to the path of this file.
+
+01-BasicMonochromeCrop_control.json
+02-BasicLRGBcrop.json
+

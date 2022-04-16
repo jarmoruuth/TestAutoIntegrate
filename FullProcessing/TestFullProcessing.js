@@ -1,4 +1,4 @@
-// "use strict"; // Requires adding a 'var' and removing a 'owth' in AutoIntegrate.js
+//"use strict"; 
 
 // TestFullProcessing.js
 
@@ -30,18 +30,13 @@ let autotest_script_directory = autotest_script_path.substring(0,autotest_script
 // *********************************************************************************************
 // the directoy containing json files of the tests
 // They must be in the format AutoSetup.json but named after the test
-var autotest_tests_directory = autotest_script_directory + "tests";
-//var autotest_tests_directory = "D:/AI_TESTS"
+var autotest_tests_directory = autotest_script_directory + "tests/";
+//var autotest_tests_directory = "D:/AI_TESTS/"
 
 // The images must be in a subdirectory of tests
 
+var autotest_logfile_path = null;
 
-// The list of tests to run
-// ** if null, all tests are run in sequence
-var autotest_test_name_list = null;
-// ** Or an array of test names must be given, they will be executed in order
-// var autotest_test_name_list = ["01-BasicMonochromeCrop","02-BasicLRGBcrop"];
-autotest_test_name_list = ["01-BasicMonochromeCrop"];
 
 // Directory where to put the results, it is recommended to clean it before execution
 // ** A directory in the source path, which must be in .gitignore. Make sure that it has enough free space
@@ -51,7 +46,6 @@ var autotest_result_directory = autotest_script_directory+"results/";
 // ** Use some specifc location, there should be nothing (except test results) in that directory
 // var autotest_result_directory = "D:/AutoIntergrateTestResults";
 
-autotest_script_directory = ensurePathEndSlash(autotest_script_directory);
 // *********************************************************************************************
 
 
@@ -77,23 +71,239 @@ function autotest_logheader()
 }
 
 
+// Emulate the initialization done by main() in AutoIntegrate, must be called before creating 
+// or recreating) the AutoIntegrateTestDialog.
 
 // Initialize various global variables using the functions of AutoIntegrate
 // Executed at the beginnig of each test.
-function autotest_initialize(test_directory)
+function autotest_initialize()
 {
+
+      console.noteln("Autotest: No module or icon setting is loaded in automatic mode, starting from defaults.");
 
       setDefaultDirs();
 
+      // Initialize ppar to the default values they have when the script is started
+      ppar.win_prefix = '';
+      ppar.prefixArray = [];
+      ppar.userColumnCount = -1;    
+      ppar.lastDir = '';  
+
+      // Hopefully remove the prefixes of a previous run
+      fixAllWindowArrays(ppar.win_prefix);
+
+      // Reset the parameters to the default they would have when the program is loaded
       setParameterDefaults();
 
-      // A default directory
-      ppar.win_prefix = '';
-      ppar.lastDir = test_directory;
+      // TODO All other global variables hould be reinitialiezd to their defauld values if AutoIntegrateTestDialog
+      // is recreated.
 
-      // prefix_array ?
-      ppar.userColumnCount = -1; 
 }
+
+// ----------------------------------------------------------------------------------------
+// autottest namespace
+let Autotest = (function() {
+
+
+      // -----------------------------------------------------------------------------------
+
+      // class Test describes a single test
+      let Test = function(test_name, test_directory, autosetup_path, command_list)
+      {
+            this.__base__ = Object;
+            this.__base__();   
+
+            this.test_name = test_name;
+            this.test_directory = test_directory; // Root of test files
+            this.autosetup_path = autosetup_path;
+            this.command_list = command_list;  // Object or null
+
+            this.result = ['Not executed'];
+ 
+            this.toString = () => {
+                  return this.name + "(" + this.test_name +")";
+            }
+      }
+
+
+      // -----------------------------------------------------------------------------------
+
+      // class TestManager keeps track of all the tests being processed
+      let TestManager = function()
+      {
+            this.__base__ = Object;
+            this.__base__();   
+
+            this.init = () => {
+                  if  (! File.isFile(this.filePath))
+                  {
+                        throw new Error("File not found: " + thisl.filePath);
+                  }
+            }
+      }
+
+      // -----------------------------------------------------------------------------------
+
+      // funnction loadTest loads the definition of a single test
+      let loadTest = function(test_path)
+      {
+            let test_directory = extractDirectory(test_path);
+            let test_name = File.extractName(test_path);
+
+            console.writeln("DEBUG: Loading ",test_path);
+
+            // Check if this is a control file or a json file
+            let is_control = test_name.endsWith("_control");
+
+            let autosetup_path = test_path; // assume autosetup json file
+            let command_list = null;
+            if (is_control)
+            {
+                  test_name = test_name.substring(0,test_name.length-"_control".length);
+                  try {
+                        command_list = load_command_list(test_path);
+                  } catch (x)
+                  {
+                        throw (Error("Control file '" + test_path + "' not a proper JSON file"));
+                  }
+                  autosetup_path = ensurePathEndSlash(test_directory)+test_name+".json";
+            } else {
+                  command_list = [["closeAllPrefix"],["run"], ["exit"]];
+            }
+
+            // Load autosetup.json to check that it is properly formatted
+            if (! File.exists(autosetup_path))
+            {
+                  throw Error("No file '"+test_name+".json"+ "' corresponding to '" + 
+                        File.extractNameAndExtension(test_path) + "' in " + test_directory);
+            }
+            
+            try {
+                  let autosetup_text = File.readTextFile(autosetup_path);
+                  JSON.parse(autosetup_text);
+            } catch (x)
+            {
+                  throw (Error("Test file '" + autosetup_path + "' not a proper JSON file"));
+            }
+
+            console.writeln("DEBUG: Loaded ",test_name, " ", is_control, "\n    path: ", autosetup_path, "\n    Commands: ", command_list);
+
+            return new Test(test_name, test_directory, autosetup_path, command_list);
+   
+      }
+    // -----------------------------------------------------------------------------------
+
+      let resolvePath = function(root_path, path)
+      {
+            if (pathIsRelative(path))
+            {
+                  return ensurePathEndSlash(root_path) + path;
+            } else {
+                  return path;
+            }
+      }
+
+      let extractDirectory = function(path) 
+      {
+            return path.substring(0,path.lastIndexOf('/')+1);
+      }
+
+      // function loadTestList fin the list of text to execute
+      let loadTestList = function(test_list_path)
+      {
+            let test_paths = []
+            let root_path = test_list_path.substring(0,test_list_path.lastIndexOf('/')+1);
+            if (! File.exists(test_list_path))
+            {
+                  throw Error("File '" + test_list_path + "' does not exist");
+            }
+            let lines = File.readLines(test_list_path);
+            //console.writeln("Autotest: Loaded " + lines.length + " lines from '" + test_list_path +"'");
+            for (let i=0; i<lines.length; i++) {
+                  let line = lines[i].trim();
+                  if (line.length == 0) continue; // skip empty line
+                  if (line.startsWith('#')) continue; // skip comment
+                  let test_path = resolvePath(root_path,line);
+                  console.writeln(File.fullPath(test_path));
+                  if (File.exists(test_path)) {
+                        test_paths[test_paths.length] = test_path;
+                  } else if (File.directoryExists(test_path)) {
+                        throw Error("Test in directory not supported '" + test_path + "', line " + (i+1));
+                  } else {
+                        throw Error("Test file '" + test_path + "' does not exsist");
+                  }
+            }
+            console.writeln("" + test_paths.length + " tests found");
+            return test_paths;
+      }
+
+      let logToAutotestLog = false;
+      let startAutotestLog = function()
+      {
+            if (!logToAutotestLog) {
+                  logToAutotestLog = true;
+                  console.beginLog();
+            }
+      }
+
+      let endAutotestLog = function (final)
+      {
+            if (logToAutotestLog)
+            {
+                  logToAutotestLog = false;
+                  console.flush();
+                  let log = console.endLog();
+
+                  if (autotest_logfile_path != null)
+                  {
+                  try
+                        {
+                        let logFile = new File;
+                        logFile.openOrCreate( autotest_logfile_path );
+                        logFile.seekEnd();
+                        logFile.write(log);
+                        logFile.close();
+                        if (final)
+                        {
+                              console.noteln("Autotest: logfile written to " + autotest_logfile_path);
+                        }
+                        }                      
+                        catch ( error )
+                        {
+                        // Unable to create file.
+                        console.warningln( "Autotest: Unable to append log to file: '" + autotest_logfile_path + "'  (" + error.message + ")." );
+                        autotest_logfile_path = null;
+                        }
+                  }
+                  
+            }
+      }
+      let forceCloseAll = function()
+      {
+            console.noteln("Autotest: Force close all ", ImageWindow.windows.length, " windows");
+            let windows = ImageWindow.windows.slice(); // make a copy
+            for (let i=0; i<windows.length; i++)
+            {
+                  windows[i].forceClose();
+            }
+            
+      }
+
+
+ 
+
+      return {
+            'Test': Test,
+            'TestManager': TestManager,
+            'loadTest': loadTest,
+            'loadTestList': loadTestList,
+            'startAutotestLog': startAutotestLog,
+            'endAutotestLog' : endAutotestLog,
+            'forceCloseAll': forceCloseAll
+      };
+}) ();
+
+
 
 
 // -----------------------------------------------------------------------------------------
@@ -121,7 +331,7 @@ function AutoIntegrateTestDialog(test_file, command_list)
       // Called when the Dialo is executed and take over control
       this.onExecute = function()
       {
-            console.noteln("onExecute() for test '", this.test_name, '", loading file list and settings from ', this.test_file);
+            console.noteln("Autotest: onExecute() for test '", this.test_name, '", loading file list and settings from ', this.test_file);
             var pagearray = parseJsonFile(this.test_file, false);
 
             for (var i = 0; i < pagearray.length; i++) {
@@ -135,7 +345,7 @@ function AutoIntegrateTestDialog(test_file, command_list)
             {
                   let command = this.command_list[command_index];
                   let commandNmb = 1+parseInt(command_index);
-                  console.noteln("Test: ", this.test_name, " executing ",commandNmb, ": ", command);
+                  console.noteln("Autotest: ", this.test_name, " executing ",commandNmb, ": ", command);
                   this.autotest_execute_command(command);
             }
 
@@ -143,61 +353,70 @@ function AutoIntegrateTestDialog(test_file, command_list)
 
       this.autotest_commands = {
             'closeAllPrefix': function(autoIntegrateDialog, command) {
-                  console.noteln("Test: Closing all prefix windows");
+                  console.noteln("Autotest: Closing all prefix windows");
                   // Not in 'this', for whatever reason
                   closeAllPrefixButton.onClick();
             },
 
                   
             'setPar': function(autoIntegrateDialog, command) {
-                  let param = command[1];
-                  let value = param[2];
-                  console.noteln("Test: Set parameter ", param, " to ", value);
-                  if (par.hasOwnProperty(param))
+                  let name = command[1];
+                  let value = command[2];
+                  console.noteln("Autotest: Set parameter ", name, " to ", value, " (", typeof value, ")");
+                  if (par.hasOwnProperty(name))
                   {
+                        let param = par[name];
                         // TODO check type
-                        par[param].val = value;
+                        param.val = value;
+                        if (param.reset != undefined) {
+                              param.reset();
+                        }
                   }
                   else
                   {
                         // TODO Log to error, option to exit
-                        console.warningln("Test: Unknown parameter '", param, "' set ignored");
+                        console.warningln("Autotest: Unknown parameter '", name, "' set ignored");
                   }
             },
                   
             'setPrefix': function(autoIntegrateDialog, command) {
                   let prefix = command[1];
-                  console.noteln("Test: Set prefix to ", prefix);
+                  console.noteln("Autotest: Set prefix to ", prefix);
                   ppar.win_prefix = prefix;
             },
 
             'setLastDir': function(autoIntegrateDialog, command) {
                   let lastDir = command[1];
-                  console.noteln("Test: Set lastDir to ", lastDir);
+                  console.noteln("Autotest: Set lastDir to ", lastDir);
                   ppar.lastDir = lastDir;
             },
 
             'setOutputRootDir': function(autoIntegrateDialog, command) {
                   let outputDir = command[1];
-                  console.noteln("Test: Set outputRootDir to ", outputDir);
+                  console.noteln("Autotest: Set outputRootDir to ", outputDir);
                   outputRootDir = outputDir;
             },
 
 
             'run': function(autoIntegrateDialog, command) {
                   // TODO note that the log must be explored
-                  console.noteln("Test: Executing 'Run' on test data");
+                  console.noteln("Autotest: Executing 'Run' on test data");
+                  console.noteln("=== Log will switch to AutoIntegrate.log");
+                  // TODO tehre is a window with no saved log before Autointegrate takes over
+                  Autotest.endAutotestLog(false);      
                   autoIntegrateDialog.run_Button.onClick();
             },
 
             'continue': function(autoIntegrateDialog, command) {
                   // TODO note that the log must be explored
-                  console.noteln("Test: Executing autoContinue on test data");
+                  console.noteln("Autotest: Executing autoContinue on test data");
+                  console.noteln("=== Log will swwitch to AutoIntegrate.log");
+                  Autotest.endAutotestLog(false);      
                   autoIntegrateDialog.autoContinueButton.onClick();
             },
 
             'exit': function(autoIntegrateDialog, command) {
-                  console.noteln("Test: Run completed, removing window in 2 seconds");
+                  console.noteln("Autotest: Run completed, removing window in 2 seconds");
                   autoIntegrateDialog.cancelTimer.start();
             },
       }
@@ -210,7 +429,7 @@ function AutoIntegrateTestDialog(test_file, command_list)
                   command_function(this, command);
             } else {
                   // TODO Log to error, option to exit
-                  console.warningln("Test: Unknown command '", command_name, "' ignored");         
+                  console.warningln("Autotest: Unknown command '", command_name, "' ignored");         
             }
       }
 
@@ -246,50 +465,50 @@ function look_for_errors(resultDirectory)
 // Load the list of commands if present, return a default list if missing
 function load_command_list(control_file_path)
 {
-      if (control_file_path == null)
-      {
-            return [["closeAllPrefix"],["run"], ["exit"]];
-      }
-
       try {
             let control_text = File.readTextFile(control_file_path);
             let control = JSON.parse(control_text);
             return control.commands;
       } catch (x)
       {
-            console.warningln("Could not parse JSON in control file ", control_file_path);
-            console.warningln("     error ", x);
-            console.warningln("     test not executed");
+            console.warningln("Autotest: Could not parse JSON in control file ", control_file_path);
+            console.warningln("             error ", x);
+            console.warningln("             test not executed");
             return [["error", "Error " + x + " loading " + control_file_path]];
       }
 }
 
 // Execute a single test sequence
-function execute_test(test_name, work_directory, autosetup_file_path, control_file_path)
+function execute_test(test_name, resultRootDirectory, autosetup_file_path, command_list)
 {
-      let resultDirectory = ensurePathEndSlash((work_directory+test_name).trim());
+      let resultDirectory = ensurePathEndSlash((resultRootDirectory+test_name).trim());
       console.noteln("===================================================");
-      console.noteln("Executing test '", test_name, "' with results in ", resultDirectory);
-
-      let command_list = load_command_list(control_file_path);
+      console.noteln("Autotest: Executing test '", test_name, "' with results in ", resultDirectory);
+      console.noteln("Autotest: Commands to execute: ")
+      for (let i=0; i<command_list.length; i++)
+      {
+            console.noteln("    ", command_list[i]);
+      }
 
       let errors = ["Unknown"];
 
       try {
 
-            autotest_initialize(work_directory);
-      
-            var dialog = new AutoIntegrateTestDialog(autosetup_file_path, command_list);
             outputRootDir = resultDirectory;
-       
+
+            var dialog = new AutoIntegrateTestDialog(autosetup_file_path, command_list);
+            // endAutoTestLog in run or conitnue command
+            // Execute is creating its own log
             dialog.execute();
+            Autotest.startAutotestLog();
+            console.noteln("=== End logging to AutoIntegrate log");
 
             errors = look_for_errors(resultDirectory);
       
-            console.noteln("Test '", test_name, "' completed normally");
+            console.noteln("Autotest; ", test_name, "' completed normally");
       }
        catch (x) {
-            console.warningln("Test '", test_name, "in error: ",  x );
+            console.warningln("Autotest '", test_name, " terminated with error: ",  x );
             errors = ["Exception: " + x];
       }
       return errors;
@@ -298,136 +517,61 @@ function execute_test(test_name, work_directory, autosetup_file_path, control_fi
 
 // -----------------------------------------------------------------------------------------
 
-function load_test_specifications(autotest_tests_directory)
-{
-      if (!File.directoryExists(autotest_tests_directory))
-      {
-            throwFatalError("Test directory '", autotest_tests_directory,"' does not exists");
-      }
 
- 
-      let all_autotest_test_files = searchDirectory( autotest_tests_directory+"/*.json", false );
-      if (all_autotest_test_files.length == 0) 
-      {
-            console.warningln("No '*.json' file in '", autotest_tests_directory, "'");
-      }
-
- 
-      // Separate test files from control files
-      let autotest_test_files = {}; // test name -> path
-      let autotest_control_files = {}; // test name -> path
-      let all_test_names = []; // in order
-
-      for (let test_index in all_autotest_test_files)
-      {
-            let test_test_file_path = all_autotest_test_files[test_index];
-            let test_file_name = File.extractName(test_test_file_path);
-            if (test_file_name.endsWith('_control'))
-            {
-                  let test_name = test_file_name.substring(0, test_file_name.length-'_control'.length); // Name of file without _control
-                  autotest_control_files[test_name] = test_test_file_path;
-            }
-            else 
-            {
-                  let test_name = test_file_name;  // Name of file
-                  autotest_test_files[test_name] = test_test_file_path;
-                  all_test_names[all_test_names.length] = test_name;
-            }
-
-      }
-
-      if (all_test_names.length == 0) 
-      {
-            console.warningln("No test '*.json' file in '", autotest_tests_directory, "', likely only *_control.json");
-      }
-
-      all_test_names.sort(); // Ensure default is sorted independ of the operating system
-
-      // Check that all _control file have a matching test file
-      let autotest_control_keys = autotest_control_files.keys;
-      for (let control_index in autotest_control_keys)
-      {
-            let control_test_name = autotest_control_keys[control_index];
-            if (! control_test_name in autotest_test_files)
-            {
-                  console.warningln("Control file '", autotest_control_files[control_test_name], 
-                  " does not have matching test file, control file will be ignored");
-            }
-      }
-
-      // autotest_test_name_list, may be in a specific order
-      let requested_test_name_list = [];
-      if (autotest_test_name_list == null)
-      {
-            console.noteln("'autotest_test_name_list' not defined, selecting all tests");
-            requested_test_name_list = all_test_names;
-      }
-      else {
-            requested_test_name_list = autotest_test_name_list;
-      }
-
-      let tests_to_execute = {}; // test_name -> [autosetup, control or null]
-      console.noteln("The following tests will be executed:");
-      for (let test_index in requested_test_name_list)          {
-            let requested_test_name = requested_test_name_list[test_index];
-            let control_file_path = (requested_test_name in autotest_control_files) ? autotest_control_files[requested_test_name] : null;
-            let with_control = (control_file_path==null ? "": " WITH CONTROL");
-            console.noteln("    ", requested_test_name, " ", with_control);
-            if (! requested_test_name in all_test_names)
-            {
-                  throwFatalError("Requested test '"+ requested_test_name + "' not in '" + autotest_tests_directory + "'")
-            }
-            let test_specification = [autotest_test_files[requested_test_name],  control_file_path];
-            tests_to_execute[requested_test_name] = test_specification;
-      }
-
-      // Return list of test names to keep desired order
-      return [requested_test_name_list, tests_to_execute];
-
-
-}
 // -----------------------------------------------------------------------------------------
-
+// The try block also open a local scope for let variables to avoid conflicts with the main script
 try
       {
+      Autotest.startAutotestLog();
+
+      Autotest.forceCloseAll();
+
       autotest_logheader();
+
+      autotest_initialize();  
+
+      // Load all test definitions
+      let test_list = Autotest.loadTestList(autotest_tests_directory+"autotest_tests.txt")
+      let tests = []
+      for (let i=0; i<test_list.length; i++)
+      {
+            let test_path = test_list[i];
+            let test = Autotest.loadTest(test_path);
+            tests[tests.length] = test;
+      }
 
       // Create or check directories
       // Output directory
       if (!File.directoryExists(autotest_result_directory))
       {
             File.createDirectory(autotest_result_directory,false);
-            console.noteln("Directory '", autotest_result_directory,"' created");
+            console.noteln("Autotest: Directory '", autotest_result_directory,"' created");
       }
-
-
-      let [requested_test_name_list, tests_to_execute] = load_test_specifications(autotest_tests_directory);
-     
-      // Prepare result array
-      let test_results = {};
-      for (let test_index in requested_test_name_list) 
-      {
-            let test_name = requested_test_name_list[test_index];
-            test_results[test_name] = 'Unknown';
-      }
+      let uniqueFilenamePart = 
+       format( "_%04d%02d%02d_%02d%02d%02d",
+                              processingDate.getFullYear(), processingDate.getMonth() + 1, processingDate.getDate(),
+                              processingDate.getHours(), processingDate.getMinutes(), processingDate.getSeconds());
+      autotest_logfile_path = ensurePathEndSlash(autotest_result_directory) + "autotest" +  uniqueFilenamePart + ".log";
 
  
       // Execute tests
-      for (let test_index in requested_test_name_list)
+      for (let i =0; i<tests.length; i++)  
       {
-            let test_name = requested_test_name_list[test_index];
-            let test_specification = tests_to_execute[test_name];
-            let [autosetup_file_path,  control_file_path] = test_specification;
+            let test = tests[i];
+            let test_name = test.test_name;
+            let autosetup_file_path = test.autosetup_path;
+            let command_list = test.command_list;
  
-            let result = execute_test(test_name, autotest_result_directory, autosetup_file_path, control_file_path);
-            test_results[test_name] = result;
+            test.result = execute_test(test_name, autotest_result_directory, autosetup_file_path, command_list);
       }
 
       console.noteln("-----------------------------------------------------");
-      console.noteln("Test results in directory ", autotest_result_directory);
-      for (let test_index in requested_test_name_list)          {
-            let test_name = requested_test_name_list[test_index];
-            let results =  test_results[test_name];
+      console.noteln("Autotest: Test results in directory ", autotest_result_directory);
+      for (let i =0; i<tests.length; i++)  
+      {
+            let test = tests[i];
+            let test_name = test.test_name;
+            let results =  test.result;
             if (results.length == 0)
             {
                   console.noteln("    ",test_name, " ok");
@@ -440,11 +584,14 @@ try
             }
       }
 
+      console.noteln("TestAutoIntegrate terminated");
+      Autotest.endAutotestLog(true);
 
 }
 catch (x) {
-      console.writeln( "Error: " + x );
+      console.writeln( "Autotest: Error: " + x );
+      Autotest.endAutotestLog(true);
 }
 
-console.noteln("TestAutoIntegrate terminated");
+
 
