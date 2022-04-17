@@ -269,7 +269,7 @@ let Autotest = (function() {
             this.init = () => {
                   if  (! File.isFile(this.filePath))
                   {
-                        throw new Error("File not found: " + thisl.filePath);
+                        throw new Error("File not found: " + this.filePath);
                   }
             }
       }
@@ -279,52 +279,78 @@ let Autotest = (function() {
       // funnction loadTest loads the definition of a single test
       let loadTest = function(test_path)
       {
-            let test_directory = extractDirectory(test_path);
+            console.writeln("DEBUG: loadTest loading '",test_path, "'", typeof test_path);
+
+            let test_directory = File.extractDrive(test_path) + File.extractDirectory(test_path);
             let test_name = File.extractName(test_path);
 
-            console.writeln("DEBUG: Loading ",test_path);
+            let test_definition = null;
+            try {
+                  let test_text = File.readTextFile(test_path);
+                  test_definition = JSON.parse(test_text);
+            } catch (x)
+            {
+                  throw new Error("Test file '" + test_path + "' not a proper JSON file: ",x);
+            }
 
             // Check if this is a control file or a json file
-            let is_control = test_name.endsWith("_control");
+            let is_control = ('type' in test_definition) && (test_definition['type'] == 'control');
 
-            let autosetup_path = test_path; // assume autosetup json file
+            console.writeln("DEBUG is control ", is_control);
+
+            let autosetup_path = null;
             let command_list = null;
             if (is_control)
             {
-                  test_name = test_name.substring(0,test_name.length-"_control".length);
+                  if (! 'commands' in test_definition || test_definition['commands'] == undefined)
+                  {
+                        throw new Error("Control file '" + test_path + "' has no 'command' property");
+                  }
+                  command_list = test_definition['commands'];
+                  console.writeln("DEBUG command ", command_list);
+
+                  if (! 'autosetup' in test_definition || test_definition['autosetup'] == undefined)
+                  {
+                        throw new Error("Control file '" + test_path + "' has no 'autosetup' property");
+                  }
+                  let autosetup = test_definition['autosetup'];
+                  
+                  console.writeln("DEBUG autosetup ", autosetup);
+
+                  if (pathIsRelative(autosetup))
+                  {
+                        autosetup_path = ensurePathEndSlash(test_directory) + autosetup;
+                  } else 
+                  {
+                        autosetup_path = autosetup;
+                  }
+
+                  // Check that autosetup is a valid json file
+                  if (! File.exists(autosetup_path))
+                  {
+                        throw Error("Autosetup file '"+autosetup+ "' (full path '" + autosetup_path + "' does not exists");
+                  }               
                   try {
-                        command_list = load_command_list(test_path);
+                        let autosetup_text = File.readTextFile(autosetup_path);
+                        JSON.parse(autosetup_text);
                   } catch (x)
                   {
-                        throw (Error("Control file '" + test_path + "' not a proper JSON file"));
+                        throw new Error("Test file '" + autosetup_path + "' not a proper JSON file:" , x);
                   }
-                  autosetup_path = ensurePathEndSlash(test_directory)+test_name+".json";
+
             } else {
+                  autosetup_path = test_path;
                   command_list = [["closeAllPrefix"],["run"], ["exit"]];
             }
 
-            // Load autosetup.json to check that it is properly formatted
-            if (! File.exists(autosetup_path))
-            {
-                  throw Error("No file '"+test_name+".json"+ "' corresponding to '" + 
-                        File.extractNameAndExtension(test_path) + "' in " + test_directory);
-            }
-            
-            try {
-                  let autosetup_text = File.readTextFile(autosetup_path);
-                  JSON.parse(autosetup_text);
-            } catch (x)
-            {
-                  throw (Error("Test file '" + autosetup_path + "' not a proper JSON file"));
-            }
+
 
             console.writeln("DEBUG: Loaded ",test_name, " ", is_control, "\n    path: ", autosetup_path, "\n    Commands: ", command_list);
 
             return new Test(test_name, test_directory, autosetup_path, command_list);
    
       }
-    // -----------------------------------------------------------------------------------
-
+ 
       let resolvePath = function(root_path, path)
       {
             if (pathIsRelative(path))
@@ -436,20 +462,23 @@ function AutoIntegrateTestDialog(test_file, command_list)
                   let command = this.command_list[command_index];
                   let commandNmb = 1+parseInt(command_index);
                   console.noteln("Autotest: ", this.test_name, " command ",commandNmb, ": ", command);
-                  this.autotest_execute_command(command);
+                  this.autotest_execute_dialog_command(command);
             }
 
       }
 
-      this.autotest_commands = {
-            'closeAllPrefix': function(autoIntegrateDialog, command) {
+      // These commands can be execute outside of the Dialog (and alsi in the dialog),
+      // they change values that can be changed by settings and do commands
+      // not processed by Autointegrate, like closing all windows.
+      this.control_commands = {
+            'closeAllPrefix': function(command) {
                   console.noteln("Autotest: Closing all prefix windows");
                   // Not in 'this', for whatever reason
                   closeAllPrefixButton.onClick();
             },
 
                   
-            'setPar': function(autoIntegrateDialog, command) {
+            'setPar': function(command) {
                   let name = command[1];
                   let value = command[2];
                   console.noteln("Autotest: Set parameter ", name, " to ", value, " (", typeof value, ")");
@@ -469,25 +498,32 @@ function AutoIntegrateTestDialog(test_file, command_list)
                   }
             },
                   
-            'setPrefix': function(autoIntegrateDialog, command) {
+            'setPrefix': function(command) {
                   let prefix = command[1];
                   console.noteln("Autotest: Set prefix to ", prefix);
                   ppar.win_prefix = prefix;
             },
 
-            'setLastDir': function(autoIntegrateDialog, command) {
+            'setLastDir': function(command) {
                   let lastDir = command[1];
                   console.noteln("Autotest: Set lastDir to ", lastDir);
                   ppar.lastDir = lastDir;
             },
 
-            'setOutputRootDir': function(autoIntegrateDialog, command) {
+            'setOutputRootDir': function(command) {
                   let outputDir = command[1];
                   console.noteln("Autotest: Set outputRootDir to ", outputDir);
                   outputRootDir = outputDir;
             },
 
+      }
 
+      // The following commands must be executed in the context of onExecute of autoIntegrateDialog,
+      // the first parameter is the dialog, the second the full command array
+      // with the name of the command as the first element.
+      this.dialog_commands = {
+
+            // Execute the 'run' command
             'run': function(autoIntegrateDialog, command) {
                   // The next beginLog will save the autoexex console log.
                   AutotestLog.trapBeginLog();
@@ -498,6 +534,7 @@ function AutoIntegrateTestDialog(test_file, command_list)
                   AutotestLog.ensureAutotestLog();
             },
 
+            // Execute the 'cintinue' command
             'continue': function(autoIntegrateDialog, command) {
                   // The next beginLog will save the autoexex console log.
                   AutotestLog.trapBeginLog();
@@ -508,19 +545,28 @@ function AutoIntegrateTestDialog(test_file, command_list)
                   AutotestLog.ensureAutotestLog();
             },
 
+            // execute the exit dialog command, this closes the dialog and exit
+            // the onExecute environment.
+            // Must be called aysychronously to avoid some deadlock
             'exit': function(autoIntegrateDialog, command) {
                   console.noteln("Autotest: Run completed, removing window in 2 seconds");
                   autoIntegrateDialog.cancelTimer.start();
             },
       }
 
-       this.autotest_execute_command = function(command)
+       this.autotest_execute_dialog_command = function(command)
       {
             let command_name = command[0];
-            if (command_name in this.autotest_commands) {
-                  let command_function = this.autotest_commands[command_name];
+            // First check commands specific to dialog
+            if (command_name in this.dialog_commands) {
+                  let command_function = this.dialog_commands[command_name];
                   command_function(this, command);
-            } else {
+
+            // Then commands generic
+            } else if (command_name in this.control_commands) {
+                        let command_function = this.control_commands[command_name];
+                        command_function(command);
+                  } else {
                   // TODO Log to error, option to exit
                   console.warningln("Autotest: Unknown command '", command_name, "' ignored");         
             }
@@ -555,21 +601,6 @@ function look_for_errors(resultDirectory)
 
 }
 
-// Load the list of commands if present, return a default list if missing
-function load_command_list(control_file_path)
-{
-      try {
-            let control_text = File.readTextFile(control_file_path);
-            let control = JSON.parse(control_text);
-            return control.commands;
-      } catch (x)
-      {
-            console.warningln("Autotest: Could not parse JSON in control file ", control_file_path);
-            console.warningln("             error ", x);
-            console.warningln("             test not executed");
-            return [["error", "Error " + x + " loading " + control_file_path]];
-      }
-}
 
 // Execute a single test sequence
 function execute_test(test_name, resultRootDirectory, autosetup_file_path, command_list)
