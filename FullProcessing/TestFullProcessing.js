@@ -48,6 +48,137 @@ var autotest_result_directory = autotest_script_directory+"results/";
 
 // *********************************************************************************************
 
+// ----------------------------------------------------------------------------------------
+// autottest log control  namespace
+// Must be initialized early to save the original console methods.
+// This is somehwat tricky, it dynamically replace the methods beginLog and endLog
+// to trap the actions of AutoIntegrate (while not modifiying the original code),
+// it save all logs that are not saved by AutoIntegrate to its own Autotest log file.
+let AutotestLog = (function() {
+     
+      let originalBeginLog = console.beginLog;
+      let originalEndLog = console.endLog;
+      let logToAutotestLog = false;
+
+      // Restore the original methods, should be called in all case before exiting
+      let restoreOriginalConsoleLog = function ()
+      {
+            console.beginLog = originalBeginLog;
+            console.endLog = originalEndLog;      
+      }
+
+      // Save (append) the autotest log at end or before switching to AutoIntegrate log
+      let saveAutotestLog = function()
+      {
+            if (logToAutotestLog)
+            {
+                  let log = originalEndLog();
+
+                  logToAutotestLog = false;
+                  console.flush();
+ 
+                  if (autotest_logfile_path != null)
+                  {
+                  try
+                        {
+                        let logFile = new File;
+                        logFile.openOrCreate( autotest_logfile_path );
+                        logFile.seekEnd();
+                        logFile.write(log);
+                        logFile.close();
+                        }                      
+                        catch ( error )
+                        {
+                        // Unable to create file.
+                        console.warningln( "Autotest: Unable to append log to file: '" + autotest_logfile_path + "'  (" + error.message + ")." );
+                        autotest_logfile_path = null;
+                        }
+                  }
+                  else {
+                        console.warningln("Autotest log not saved, path is null or previous error");
+                  }
+            }
+
+      }
+
+      // endLog has been called by AutoIntegrate,
+      // save the log and switch to autotest log
+      // Called as a substitute of endLog() established by switchToAutoIntegrateLog()
+      let restoreAutotestLog = function()
+      {
+            // close Autointegrate log
+            // console.noteln("DEBUG: === Log will switch to AutoTest log");
+            restoreOriginalConsoleLog();
+            console.flush();
+            let log = console.endLog();
+
+            // Enable autoexe clog
+            logToAutotestLog = true;
+            console.beginLog();
+            console.noteln("=== Log switched to AutoTest log");
+
+            // return Autointegrate log to caller of console.begingLog
+            return log;
+      }
+
+      // Called after run() or continue() to ensure that it switched back to 
+      // autotest log, force it if not done
+      let ensureAutotestLog = function()
+      {
+            if (! logToAutotestLog)
+            {
+                  // close Autointegrate log
+                  // console.noteln("DEBUG: === ensureAutotestLog - Log will switch to AutoTest log");
+                  restoreOriginalConsoleLog();
+                  console.flush();
+                  // Likely the proper endLog was not called
+                  console.endLog();
+
+                  // Enable autoexec log
+                  logToAutotestLog = true;
+                  console.beginLog();
+                  console.warningln("=== Log forced switched to AutoTest log (run() or continue() did not close log)");
+            }
+      }
+
+
+      // We close and save the current AutotestLog, if needed, and do logBegin in name of AutoIntegrate
+      // Must be called by trapBeginLog() when we are in AutoIntegrate log
+      let switchToAutoIntegrateLog = function()
+      {
+            console.noteln("=== Log will switch to AutoIntegrate.log");
+            saveAutotestLog();
+            originalBeginLog();
+            // console.noteln("DEBUG: === Log switched to AutoIntegrate.log");
+            // The next endLog will switch back to Autotest log
+            console.endLog = restoreAutotestLog;
+      }
+
+      // Request  the next console.begingLog to switch from autotest log to AutoIntergrate log
+      let trapBeginLog = function()
+      {
+            console.beginLog = switchToAutoIntegrateLog;            
+      }
+
+      // Initialize autotest log and start it
+      let initializeAutotestLog = function()
+      {
+            logToAutotestLog = true;
+            originalBeginLog();
+            console.noteln("Autotest: Begin logging to Autotest log");
+      }
+
+
+      return {
+            'restoreOriginalConsoleLog': restoreOriginalConsoleLog,
+            'saveAutotestLog': saveAutotestLog,
+            'trapBeginLog': trapBeginLog,
+            'initializeAutotestLog': initializeAutotestLog,
+            'ensureAutotestLog': ensureAutotestLog
+      };
+}) ();
+
+// ----------------------------------------------------------------------------------------
 
 
 
@@ -99,6 +230,7 @@ function autotest_initialize()
       // is recreated.
 
 }
+
 
 // ----------------------------------------------------------------------------------------
 // autottest namespace
@@ -237,47 +369,7 @@ let Autotest = (function() {
             return test_paths;
       }
 
-      let logToAutotestLog = false;
-      let startAutotestLog = function()
-      {
-            if (!logToAutotestLog) {
-                  logToAutotestLog = true;
-                  console.beginLog();
-            }
-      }
 
-      let endAutotestLog = function (final)
-      {
-            if (logToAutotestLog)
-            {
-                  logToAutotestLog = false;
-                  console.flush();
-                  let log = console.endLog();
-
-                  if (autotest_logfile_path != null)
-                  {
-                  try
-                        {
-                        let logFile = new File;
-                        logFile.openOrCreate( autotest_logfile_path );
-                        logFile.seekEnd();
-                        logFile.write(log);
-                        logFile.close();
-                        if (final)
-                        {
-                              console.noteln("Autotest: logfile written to " + autotest_logfile_path);
-                        }
-                        }                      
-                        catch ( error )
-                        {
-                        // Unable to create file.
-                        console.warningln( "Autotest: Unable to append log to file: '" + autotest_logfile_path + "'  (" + error.message + ")." );
-                        autotest_logfile_path = null;
-                        }
-                  }
-                  
-            }
-      }
       let forceCloseAll = function()
       {
             console.noteln("Autotest: Force close all ", ImageWindow.windows.length, " windows");
@@ -297,8 +389,6 @@ let Autotest = (function() {
             'TestManager': TestManager,
             'loadTest': loadTest,
             'loadTestList': loadTestList,
-            'startAutotestLog': startAutotestLog,
-            'endAutotestLog' : endAutotestLog,
             'forceCloseAll': forceCloseAll
       };
 }) ();
@@ -345,7 +435,7 @@ function AutoIntegrateTestDialog(test_file, command_list)
             {
                   let command = this.command_list[command_index];
                   let commandNmb = 1+parseInt(command_index);
-                  console.noteln("Autotest: ", this.test_name, " executing ",commandNmb, ": ", command);
+                  console.noteln("Autotest: ", this.test_name, " command ",commandNmb, ": ", command);
                   this.autotest_execute_command(command);
             }
 
@@ -399,20 +489,23 @@ function AutoIntegrateTestDialog(test_file, command_list)
 
 
             'run': function(autoIntegrateDialog, command) {
+                  // The next beginLog will save the autoexex console log.
+                  AutotestLog.trapBeginLog();
+
                   // TODO note that the log must be explored
                   console.noteln("Autotest: Executing 'Run' on test data");
-                  console.noteln("=== Log will switch to AutoIntegrate.log");
-                  // TODO tehre is a window with no saved log before Autointegrate takes over
-                  Autotest.endAutotestLog(false);      
                   autoIntegrateDialog.run_Button.onClick();
+                  AutotestLog.ensureAutotestLog();
             },
 
             'continue': function(autoIntegrateDialog, command) {
-                  // TODO note that the log must be explored
+                  // The next beginLog will save the autoexex console log.
+                  AutotestLog.trapBeginLog();
+
+                   // TODO note that the log must be explored
                   console.noteln("Autotest: Executing autoContinue on test data");
-                  console.noteln("=== Log will swwitch to AutoIntegrate.log");
-                  Autotest.endAutotestLog(false);      
                   autoIntegrateDialog.autoContinueButton.onClick();
+                  AutotestLog.ensureAutotestLog();
             },
 
             'exit': function(autoIntegrateDialog, command) {
@@ -497,11 +590,7 @@ function execute_test(test_name, resultRootDirectory, autosetup_file_path, comma
             outputRootDir = resultDirectory;
 
             var dialog = new AutoIntegrateTestDialog(autosetup_file_path, command_list);
-            // endAutoTestLog in run or conitnue command
-            // Execute is creating its own log
             dialog.execute();
-            Autotest.startAutotestLog();
-            console.noteln("=== End logging to AutoIntegrate log");
 
             errors = look_for_errors(resultDirectory);
       
@@ -515,14 +604,14 @@ function execute_test(test_name, resultRootDirectory, autosetup_file_path, comma
 }
 
 
-// -----------------------------------------------------------------------------------------
 
 
 // -----------------------------------------------------------------------------------------
 // The try block also open a local scope for let variables to avoid conflicts with the main script
 try
       {
-      Autotest.startAutotestLog();
+
+      AutotestLog.initializeAutotestLog();
 
       Autotest.forceCloseAll();
 
@@ -547,10 +636,11 @@ try
             File.createDirectory(autotest_result_directory,false);
             console.noteln("Autotest: Directory '", autotest_result_directory,"' created");
       }
+      let log_date = new Date;
       let uniqueFilenamePart = 
        format( "_%04d%02d%02d_%02d%02d%02d",
-                              processingDate.getFullYear(), processingDate.getMonth() + 1, processingDate.getDate(),
-                              processingDate.getHours(), processingDate.getMinutes(), processingDate.getSeconds());
+                              log_date.getFullYear(), log_date.getMonth() + 1, log_date.getDate(),
+                              log_date.getHours(), log_date.getMinutes(), log_date.getSeconds());
       autotest_logfile_path = ensurePathEndSlash(autotest_result_directory) + "autotest" +  uniqueFilenamePart + ".log";
 
  
@@ -584,13 +674,16 @@ try
             }
       }
 
-      console.noteln("TestAutoIntegrate terminated");
-      Autotest.endAutotestLog(true);
+      AutotestLog.saveAutotestLog();
+      console.noteln("Autotest: logfile written to " + autotest_logfile_path);
 
+      console.noteln("TestAutoIntegrate terminated");
+ 
 }
 catch (x) {
+      AutotestLog.restoreOriginalConsoleLog();
+      console.noteln("TestAutoIntegrate terminated");
       console.writeln( "Autotest: Error: " + x );
-      Autotest.endAutotestLog(true);
 }
 
 
