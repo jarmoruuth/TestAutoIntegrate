@@ -253,7 +253,7 @@ let Autotest = (function() {
             this.result = ['Not executed'];
  
             this.toString = () => {
-                  return this.name + "(" + this.test_name +")";
+                  return this.test_name + "(" + this.autosetup_path +")";
             }
       }
 
@@ -279,7 +279,7 @@ let Autotest = (function() {
       // funnction loadTest loads the definition of a single test
       let loadTest = function(test_path)
       {
-            console.writeln("DEBUG: loadTest loading '",test_path, "'", typeof test_path);
+            //console.writeln("DEBUG: loadTest loading '",test_path, "'", typeof test_path);
 
             let test_directory = File.extractDrive(test_path) + File.extractDirectory(test_path);
             let test_name = File.extractName(test_path);
@@ -295,8 +295,6 @@ let Autotest = (function() {
 
             // Check if this is a control file or a json file
             let is_control = ('type' in test_definition) && (test_definition['type'] == 'control');
-
-            console.writeln("DEBUG is control ", is_control);
 
             let autosetup_path = null;
             let command_list = null;
@@ -315,7 +313,7 @@ let Autotest = (function() {
                   }
                   let autosetup = test_definition['autosetup'];
                   
-                  console.writeln("DEBUG autosetup ", autosetup);
+                  //console.writeln("DEBUG autosetup ", autosetup);
 
                   if (pathIsRelative(autosetup))
                   {
@@ -340,7 +338,7 @@ let Autotest = (function() {
 
             } else {
                   autosetup_path = test_path;
-                  command_list = [["closeAllPrefix"],["run"], ["exit"]];
+                  command_list = [["execute", [["closeAllPrefix"],["run"], ["exit"]]]];
             }
 
 
@@ -403,12 +401,8 @@ let Autotest = (function() {
             for (let i=0; i<windows.length; i++)
             {
                   windows[i].forceClose();
-            }
-            
+            }           
       }
-
-
- 
 
       return {
             'Test': Test,
@@ -423,14 +417,95 @@ let Autotest = (function() {
 
 
 // -----------------------------------------------------------------------------------------
+// These commands can be execute outside of the Dialog (and alsi in the dialog),
+// they change values that can be changed by settings and do commands
+// not processed by Autointegrate, like closing all windows.
+let autotest_control_commands = {
+                  
+      'setPar': function(command) {
+            let name = command[1];
+            let value = command[2];
+            console.noteln("Autotest: Set parameter ", name, " to ", value, " (", typeof value, ")");
+            if (par.hasOwnProperty(name))
+            {
+                  let param = par[name];
+                  // TODO check type
+                  param.val = value;
+                  if (param.reset != undefined) {
+                        param.reset();
+                  }
+            }
+            else
+            {
+                  // TODO Log to error, option to exit
+                  console.warningln("Autotest: Unknown parameter '", name, "' set ignored");
+            }
+      },
+            
+      'setPrefix': function(command) {
+            let prefix = command[1];
+            console.noteln("Autotest: Set prefix to ", prefix);
+            ppar.win_prefix = prefix;
+      },
+
+      'setLastDir': function(command) {
+            let lastDir = command[1];
+            console.noteln("Autotest: Set lastDir to ", lastDir);
+            ppar.lastDir = lastDir;
+      },
+
+      'setOutputRootDir': function(command) {
+            let outputDir = command[1];
+            console.noteln("Autotest: Set outputRootDir to ", outputDir);
+            outputRootDir = outputDir;
+      },
+      'forceCloseAll': function(command) {
+                  Autotest.forceCloseAll();
+      },
+      'noteln': function(command) {
+            let text = command[1];
+            console.noteln(text);
+      },
+      'warningln': function(command) {
+            let text = command[1];
+            console.warningln(text);
+      },
+      'writeln': function(command) {
+            let text = command[1];
+            console.writeln(text);
+      },
+ 
+}
+
+// These commands are executed outside of the dialog execute context but
+// requires the dialog as a parameter, for example to execute the dialog.
+let autotest_launch_commands = {
+                  
+      'execute': function(dialog, command) {
+            let command_list = [["run"]];  // default command if none is specified
+            if (command.length > 1)
+            {
+                  command_list = command[1];
+            }
+            console.noteln("Autotest: execute dialog with commands: ", command_list);
+            // Update the command list to the parameter of 'execute'
+            dialog.command_list = command_list;
+            dialog.execute();
+
+      },
+            
+
+}
+
+// -----------------------------------------------------------------------------------------
 
 // A subclass of AutoIntegrateDialog created for each test to execute the specific test file
-function AutoIntegrateTestDialog(test_file, command_list)
+function AutoIntegrateTestDialog(test_file)
 {
       this.__base__ = AutoIntegrateDialog;
       this.__base__();
       this.test_file = test_file;
-      this.command_list = command_list;
+      this.command_list = ["run"]; // Default command
       this.test_name = File.extractName(this.test_file);
 
       // Time used to close the window as a direct call does not work
@@ -467,61 +542,19 @@ function AutoIntegrateTestDialog(test_file, command_list)
 
       }
 
-      // These commands can be execute outside of the Dialog (and alsi in the dialog),
-      // they change values that can be changed by settings and do commands
-      // not processed by Autointegrate, like closing all windows.
-      this.control_commands = {
-            'closeAllPrefix': function(command) {
-                  console.noteln("Autotest: Closing all prefix windows");
-                  // Not in 'this', for whatever reason
-                  closeAllPrefixButton.onClick();
-            },
 
-                  
-            'setPar': function(command) {
-                  let name = command[1];
-                  let value = command[2];
-                  console.noteln("Autotest: Set parameter ", name, " to ", value, " (", typeof value, ")");
-                  if (par.hasOwnProperty(name))
-                  {
-                        let param = par[name];
-                        // TODO check type
-                        param.val = value;
-                        if (param.reset != undefined) {
-                              param.reset();
-                        }
-                  }
-                  else
-                  {
-                        // TODO Log to error, option to exit
-                        console.warningln("Autotest: Unknown parameter '", name, "' set ignored");
-                  }
-            },
-                  
-            'setPrefix': function(command) {
-                  let prefix = command[1];
-                  console.noteln("Autotest: Set prefix to ", prefix);
-                  ppar.win_prefix = prefix;
-            },
-
-            'setLastDir': function(command) {
-                  let lastDir = command[1];
-                  console.noteln("Autotest: Set lastDir to ", lastDir);
-                  ppar.lastDir = lastDir;
-            },
-
-            'setOutputRootDir': function(command) {
-                  let outputDir = command[1];
-                  console.noteln("Autotest: Set outputRootDir to ", outputDir);
-                  outputRootDir = outputDir;
-            },
-
-      }
 
       // The following commands must be executed in the context of onExecute of autoIntegrateDialog,
       // the first parameter is the dialog, the second the full command array
       // with the name of the command as the first element.
       this.dialog_commands = {
+
+            // Must be in context of dialog because execute a button
+            'closeAllPrefix': function(autoIntegrateDialog,command) {
+                  console.noteln("Autotest: Closing all prefix windows");
+                  // Not in 'this', for whatever reason
+                  closeAllPrefixButton.onClick();
+            },
 
             // Execute the 'run' command
             'run': function(autoIntegrateDialog, command) {
@@ -554,7 +587,7 @@ function AutoIntegrateTestDialog(test_file, command_list)
             },
       }
 
-       this.autotest_execute_dialog_command = function(command)
+      this.autotest_execute_dialog_command = function(command)
       {
             let command_name = command[0];
             // First check commands specific to dialog
@@ -563,12 +596,12 @@ function AutoIntegrateTestDialog(test_file, command_list)
                   command_function(this, command);
 
             // Then commands generic
-            } else if (command_name in this.control_commands) {
-                        let command_function = this.control_commands[command_name];
+            } else if (command_name in autotest_control_commands) {
+                        let command_function = autotest_control_commands[command_name];
                         command_function(command);
-                  } else {
+            } else {
                   // TODO Log to error, option to exit
-                  console.warningln("Autotest: Unknown command '", command_name, "' ignored");         
+                  console.warningln("Autotest: Unknown dialog or control command '", command_name, "' ignored");         
             }
       }
 
@@ -601,6 +634,20 @@ function look_for_errors(resultDirectory)
 
 }
 
+function autotest_execute_launch_command(dialog, command)
+{
+      let command_name = command[0];
+      if (command_name in autotest_control_commands) {
+            let command_function = autotest_control_commands[command_name];
+            command_function(dialog, command);
+      } else if (command_name in autotest_launch_commands) {
+            let command_function = autotest_launch_commands[command_name];
+            command_function(dialog, command);
+      } else {
+            // TODO Log to error, option to exit
+            console.warningln("Autotest: Unknown launch or control command '", command_name, "' ignored");         
+      }
+}
 
 // Execute a single test sequence
 function execute_test(test_name, resultRootDirectory, autosetup_file_path, command_list)
@@ -611,7 +658,7 @@ function execute_test(test_name, resultRootDirectory, autosetup_file_path, comma
       console.noteln("Autotest: Commands to execute: ")
       for (let i=0; i<command_list.length; i++)
       {
-            console.noteln("    ", command_list[i]);
+            console.noteln("    ", JSON.stringify(command_list[i]));
       }
 
       let errors = ["Unknown"];
@@ -620,8 +667,15 @@ function execute_test(test_name, resultRootDirectory, autosetup_file_path, comma
 
             outputRootDir = resultDirectory;
 
-            var dialog = new AutoIntegrateTestDialog(autosetup_file_path, command_list);
-            dialog.execute();
+            var dialog = new AutoIntegrateTestDialog(autosetup_file_path);
+
+            for (let command_index in command_list)
+            {
+                  let command = command_list[command_index];
+                  let commandNmb = 1+parseInt(command_index);
+                  console.noteln("Autotest: ", test_name, " command ",commandNmb, ": ", command);
+                  autotest_execute_launch_command(dialog, command);
+            }
 
             errors = look_for_errors(resultDirectory);
       
