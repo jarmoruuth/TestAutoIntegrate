@@ -422,7 +422,7 @@ let Autotest = (function() {
             // So that there is a canonical order for easier comparison
             window_ids = window_ids.sort();
             let state = {'windows': window_ids};
-            console.writeln("DEBUG: reference state: ", JSON.stringify(state));
+            //console.writeln("DEBUG: reference state: ", JSON.stringify(state));
             return state;
       }
 
@@ -438,8 +438,8 @@ let Autotest = (function() {
             let newWindows = newReferenceState['windows'];
             let createdWindows = newWindows.filter(id => oldWindows.indexOf(id)<0);
             let deletedWindows = oldWindows.filter(id => newWindows.indexOf(id)<0);
-            console.noteln("Created ImageWindow: ", createdWindows);
-            if (deletedWindows.length>0) console.noteln("Removed ImageWindow: ", deletedWindows);
+            console.noteln("Autotest: Created ImageWindow: ", createdWindows);
+            if (deletedWindows.length>0) console.noteln("Autotest: Removed ImageWindow: ", deletedWindows);
             return [createdWindows, deletedWindows];
       }
 
