@@ -36,20 +36,21 @@ operations is successfuly applied. Therefore the images of the testing set can b
 
 The control file is a json file that has the keys "type": "control", and "version": 1" at top level.
 
-It must specify the autosetup fiel to use by the key "autosetup": "absoluteorrelativeautosetup.json",
-which is relative to the control file if not absolute.
+If an autosetup file must be loaded, this must be done by the command `autosetup` described below. This is
+not required if you do a `continue`, but then you must use `loadImage` to load the images.
 
-The it has a list of commands.  A list of command is an array of arrays.
-Each array ahs a string that identify the command to execute followed by parameters. 
+The test is controlled by a list of commands.  A list of command is an array of arrays, where
+each inside array has a string as first element to identify the command to execute followed by parameters.
 The parameters depend on the comamand.
 
-A special case for the "execute" command (htat execute the dialog) is that it has a list of commands
-as parameters (and arra of arrays again).
+A special case for the "execute" command (that execute the dialog) is that it has a list of commands
+as parameters (as an array of arrays).
 
 The top level commands are executed before the DialogBox is executed or after it exited.
 
 All other commands are executed in the context of the dialog box.
 
+The command "autosetup" loads an autosetup file and must be before "run".
 The command "run" and "continue" launch the processing.
 The command "exit" must be the last one in "run" and exits the dialog.
 
@@ -68,6 +69,8 @@ They can be exectued in the run context or in the global context. They are:
 - ["setLastDir", dir] - Set `ppar.lastDir` to the specified value
 - ["setOutputRootDir", dir] - Set `outputRootDir` to the specified value
 - ["forceCloseAll"] - Force close all image windows.
+- ["loadImage", name, path] - Load the image from the path relative to the result directory
+- ["saveImage", name, path] - save the image to the path relative to the result directory
 - ["writeln", msg] - console.writeln of the msg
 - ["noteln", msg] - console.noteln of the msg
 - ["warningln", msg] - console.warningln of the msg
@@ -76,6 +79,7 @@ They can be exectued in the run context or in the global context. They are:
 
 They can be executed only as subcommands of `execute`.
 
+- ["autosetup", autosetufile] - Load the autosetup file relative to the test directory
 - ["closeAllPrefix"] - click the button *close all prefix*
 - ["run"] - click the *run* button, the actions will run to completion before the command returns
 - ["continue"] - click the **continue* button, the actions will run to completion before the command returns
@@ -103,11 +107,11 @@ proceed to the next command after `execute`.
     {
     "type": "control",
     "version": 1,
-    "autosetup": "01-BasicMonochromeCrop.json",
     "commands": [
         ["forceCloseAll"],
         ["execute", 
         [
+            ["autosetup": "01-BasicMonochromeCrop.json"],
             ["run"],
             ["setPar", "extra_darker_background", true],
             ["setPar", "crop_to_common_area", false],
@@ -122,6 +126,28 @@ proceed to the next command after `execute`.
     }
 ```
 
+Execute a `continue`only
+
+```json
+{
+  "type": "control",
+  "version": 1,
+  "commands": [
+     ["forceCloseAll"],
+     ["loadImage", "AutoMono", "01-BasicMonochromeCrop_control_with_continue/AutoProcessed/AutoMono.xisf"],
+     ["execute", 
+      [
+        ["setPar", "extra_darker_background", true],
+        ["setPar", "monochrome_image", true],
+        ["setPrefix", "snd"],
+        ["continue"],
+        ["saveImage", "snd_AutoMono_extra", "01-BasicMonochromeCrop_control_continue_only/CopyOfAutoMono.xisf"],
+        ["exit"]
+      ]
+    ]
+  ]
+}
+```
 
 ### Example of AutoSetup.json
 

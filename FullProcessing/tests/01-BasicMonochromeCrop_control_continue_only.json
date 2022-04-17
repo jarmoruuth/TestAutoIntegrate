@@ -1,7 +1,6 @@
 {
   "type": "control",
   "version": 1,
-  "autosetup": "01-BasicMonochromeCrop.json",
   "commands": [
      ["forceCloseAll"],
      ["loadImage", "AutoMono", "01-BasicMonochromeCrop_control_with_continue/AutoProcessed/AutoMono.xisf"],

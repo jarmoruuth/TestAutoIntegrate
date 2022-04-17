@@ -240,7 +240,7 @@ let Autotest = (function() {
       // -----------------------------------------------------------------------------------
 
       // class Test describes a single test
-      let Test = function(test_name, test_directory, autosetup_path, command_list)
+      let Test = function(test_name, test_directory, command_list)
       {
             this.__base__ = Object;
             this.__base__();   
@@ -248,7 +248,6 @@ let Autotest = (function() {
             // --- Test specification
             this.test_name = test_name;
             this.test_directory = test_directory; // Root of test files
-            this.autosetup_path = autosetup_path;
             this.command_list = command_list;  // Object or null
 
             // --- Test execution history and results
@@ -261,7 +260,7 @@ let Autotest = (function() {
             }
  
             this.toString = () => {
-                  return this.test_name + "(" + this.autosetup_path +")";
+                  return this.test_name + "(" + this.test_directory +")";
             }
       }
 
@@ -308,8 +307,7 @@ let Autotest = (function() {
             // Check if this is a control file or a json file
             let is_control = ('type' in test_definition) && (test_definition['type'] == 'control');
 
-            let autosetup_path = null;
-            let command_list = null;
+             let command_list = null;
             if (is_control)
             {
                   if (! 'commands' in test_definition || test_definition['commands'] == undefined)
@@ -319,39 +317,16 @@ let Autotest = (function() {
                   command_list = test_definition['commands'];
                   //console.writeln("DEBUG command ", JSON.stringify(command_list));
 
-                  if (! 'autosetup' in test_definition || test_definition['autosetup'] == undefined)
-                  {
-                        throw new Error("Control file '" + test_path + "' has no 'autosetup' property");
-                  }
-                  let autosetup = test_definition['autosetup'];
-                  
-                  //console.writeln("DEBUG autosetup ", autosetup, " ", test_directory);
-
-                  autosetup_path = resolveRelativePath(autosetup, test_directory);
-
-                  // Check that autosetup is a valid json file
-                  if (! File.exists(autosetup_path))
-                  {
-                        throw Error("Autosetup file '"+autosetup+ "' (full path '" + autosetup_path + "' does not exists");
-                  }               
-                  try {
-                        let autosetup_text = File.readTextFile(autosetup_path);
-                        JSON.parse(autosetup_text);
-                  } catch (x)
-                  {
-                        throw new Error("Test file '" + autosetup_path + "' not a proper JSON file:" , x);
-                  }
-
             } else {
-                  autosetup_path = test_path;
-                  command_list = [["execute", [["closeAllPrefix"],["run"], ["exit"]]]];
+                  // We load the autosetup as a default command
+                   command_list = [["forceCloseAll"],["execute", [["autosetup", test_path],["run"], ["exit"]]]];
             }
 
 
             //console.writeln("DEBUG: Loaded ",test_name, " ", is_control, "\n    path: ", autosetup_path, "\n    Commands: ", 
             //      JSON.stringify(command_list));
 
-            return new Test(test_name, test_directory, autosetup_path, command_list);
+            return new Test(test_name, test_directory, command_list);
    
       }
  
@@ -625,16 +600,7 @@ function AutoIntegrateTestDialog(test)
       this.onExecute = function()
       {
             try {
-                  let autosetup_file = this.current_test.autosetup_path;
-                  console.noteln("Autotest: onExecute() for test '", this.test_name, '", loading file list and settings from ', autosetup_file);
-                  var pagearray = parseJsonFile(autosetup_file, false);
-
-                  for (var i = 0; i < pagearray.length; i++) {
-                        if (pagearray[i] != null) {
-                              addFilesToTreeBox(this, i, pagearray[i]);
-                        }
-                  }
-                  updateInfoLabel(this);
+                  console.noteln("Autotest: onExecute() for test '", this.test_name, "'");
       
                   for (let command_index=0; command_index<this.command_list.length; command_index++)
                   {
@@ -680,6 +646,23 @@ function AutoIntegrateTestDialog(test)
                   console.noteln("Autotest: Closing all prefix windows");
                   // Not in 'this', for whatever reason
                   closeAllPrefixButton.onClick();
+            },
+
+            'autosetup': function(autoIntegrationDialog, test, command)
+            {
+                  let autosetup_file = command[1];
+                  let autosetup_path = Autotest.resolveRelativePath(autosetup_file, test.test_directory);
+                  console.noteln("Autotest: autosetup '",autosetup_file,"' for test '", test.test_name, '" path ', autosetup_file);
+                  // AutoIntegrate parse the autosetup
+                  var pagearray = parseJsonFile(autosetup_path, false);
+
+                  for (var i = 0; i < pagearray.length; i++) {
+                        if (pagearray[i] != null) {
+                              addFilesToTreeBox(autoIntegrationDialog, i, pagearray[i]);
+                        }
+                  }
+                  updateInfoLabel(autoIntegrationDialog);
+
             },
 
             // Execute the 'run' command
