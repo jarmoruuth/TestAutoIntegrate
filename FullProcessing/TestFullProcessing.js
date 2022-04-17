@@ -33,9 +33,6 @@ let autotest_script_directory = autotest_script_path.substring(0,autotest_script
 var autotest_tests_directory = autotest_script_directory + "tests/";
 //var autotest_tests_directory = "D:/AI_TESTS/"
 
-// The images must be in a subdirectory of tests
-
-var autotest_logfile_path = null;
 
 
 // Directory where to put the results, it is recommended to clean it before execution
@@ -45,6 +42,9 @@ var autotest_result_directory = autotest_script_directory+"results/";
 // var autotest_result_directory = ensurePathEndSlash(File.systemTempDirectory)+"AutoIntergrateTestResults/";
 // ** Use some specifc location, there should be nothing (except test results) in that directory
 // var autotest_result_directory = "D:/AutoIntergrateTestResults";
+
+// Where the autotest log file will be saved.  by default it will be created in the autotest_result_directory
+var autotest_logfile_path = null;
 
 // *********************************************************************************************
 
@@ -404,12 +404,55 @@ let Autotest = (function() {
             }           
       }
 
+      // A reference state is a set of information about the state of the system
+      // (currently the windows in the workspace) that may be saved and compared
+      // with an expected or previous state.
+      let referenceState = null;
+
+      let buildReferenceState = function()
+      {
+            let window_ids = [];
+            let ws = ImageWindow.windows;
+            for (let i=0; i<ws.length; i++) 
+            {
+                  let w = ws[i]
+                  //console.writeln("DEBUG: buildReferenceState ", w.mainView.id, " ", w.mainView.fullId);
+                  window_ids[window_ids.length] = w.mainView.id;
+            }
+            // So that there is a canonical order for easier comparison
+            window_ids = window_ids.sort();
+            let state = {'windows': window_ids};
+            console.writeln("DEBUG: reference state: ", JSON.stringify(state));
+            return state;
+      }
+
+      let saveReferenceState = function()
+      {
+            referenceState = buildReferenceState();;
+      }
+
+      let compareReferenceState = function()
+      {
+            let newReferenceState = buildReferenceState();
+            let oldWindows = referenceState['windows'];
+            let newWindows = newReferenceState['windows'];
+            let createdWindows = newWindows.filter(id => oldWindows.indexOf(id)<0);
+            let deletedWindows = oldWindows.filter(id => newWindows.indexOf(id)<0);
+            console.noteln("Created ImageWindow: ", createdWindows);
+            if (deletedWindows.length>0) console.noteln("Removed ImageWindow: ", deletedWindows);
+            return [createdWindows, deletedWindows];
+      }
+
+
       return {
             'Test': Test,
             'TestManager': TestManager,
             'loadTest': loadTest,
             'loadTestList': loadTestList,
-            'forceCloseAll': forceCloseAll
+            'forceCloseAll': forceCloseAll,
+            'buildReferenceState': buildReferenceState,
+            'saveReferenceState': saveReferenceState,
+            'compareReferenceState': compareReferenceState
       };
 }) ();
 
@@ -417,7 +460,7 @@ let Autotest = (function() {
 
 
 // -----------------------------------------------------------------------------------------
-// These commands can be execute outside of the Dialog (and alsi in the dialog),
+// These commands can be execute outside of the Dialog (and also in the dialog),
 // they change values that can be changed by settings and do commands
 // not processed by Autointegrate, like closing all windows.
 let autotest_control_commands = {
@@ -522,22 +565,28 @@ function AutoIntegrateTestDialog(test_file)
       // Called when the Dialo is executed and take over control
       this.onExecute = function()
       {
-            console.noteln("Autotest: onExecute() for test '", this.test_name, '", loading file list and settings from ', this.test_file);
-            var pagearray = parseJsonFile(this.test_file, false);
+            try {
+                  console.noteln("Autotest: onExecute() for test '", this.test_name, '", loading file list and settings from ', this.test_file);
+                  var pagearray = parseJsonFile(this.test_file, false);
 
-            for (var i = 0; i < pagearray.length; i++) {
-                  if (pagearray[i] != null) {
-                        addFilesToTreeBox(this, i, pagearray[i]);
+                  for (var i = 0; i < pagearray.length; i++) {
+                        if (pagearray[i] != null) {
+                              addFilesToTreeBox(this, i, pagearray[i]);
+                        }
                   }
-            }
-            updateInfoLabel(this);
- 
-            for (let command_index in this.command_list)
-            {
-                  let command = this.command_list[command_index];
-                  let commandNmb = 1+parseInt(command_index);
-                  console.noteln("Autotest: ", this.test_name, " command ",commandNmb, ": ", command);
-                  this.autotest_execute_dialog_command(command);
+                  updateInfoLabel(this);
+      
+                  for (let command_index in this.command_list)
+                  {
+                        let command = this.command_list[command_index];
+                        let commandNmb = 1+parseInt(command_index);
+                        console.noteln("Autotest: ", this.test_name, " command ",commandNmb, ": ", command);
+                        this.autotest_execute_dialog_command(command);
+                  }
+            } catch(x) {
+                  console.criticalln(x);
+                  console.warningln("Canceling window due to error");
+                  autoIntegrateDialog.cancelTimer.start();
             }
 
       }
@@ -558,6 +607,9 @@ function AutoIntegrateTestDialog(test_file)
 
             // Execute the 'run' command
             'run': function(autoIntegrateDialog, command) {
+
+                  Autotest.saveReferenceState();
+
                   // The next beginLog will save the autoexex console log.
                   AutotestLog.trapBeginLog();
 
@@ -565,10 +617,13 @@ function AutoIntegrateTestDialog(test_file)
                   console.noteln("Autotest: Executing 'Run' on test data");
                   autoIntegrateDialog.run_Button.onClick();
                   AutotestLog.ensureAutotestLog();
+                  Autotest.compareReferenceState();
             },
 
             // Execute the 'cintinue' command
             'continue': function(autoIntegrateDialog, command) {
+                  Autotest.saveReferenceState();
+
                   // The next beginLog will save the autoexex console log.
                   AutotestLog.trapBeginLog();
 
@@ -576,6 +631,7 @@ function AutoIntegrateTestDialog(test_file)
                   console.noteln("Autotest: Executing autoContinue on test data");
                   autoIntegrateDialog.autoContinueButton.onClick();
                   AutotestLog.ensureAutotestLog();
+                  Autotest.compareReferenceState();
             },
 
             // execute the exit dialog command, this closes the dialog and exit
@@ -698,11 +754,17 @@ try
 
       AutotestLog.initializeAutotestLog();
 
-      Autotest.forceCloseAll();
+      // Autotest.forceCloseAll();
 
       autotest_logheader();
 
       autotest_initialize();  
+
+      // Override function to disable persistent settings
+      savePersistentSettings = function()
+      {
+            console.noteln("Autotest: Persistent setting are not saved during Autotest")
+      }
 
       // Load all test definitions
       let test_list = Autotest.loadTestList(autotest_tests_directory+"autotest_tests.txt")
@@ -721,12 +783,17 @@ try
             File.createDirectory(autotest_result_directory,false);
             console.noteln("Autotest: Directory '", autotest_result_directory,"' created");
       }
-      let log_date = new Date;
-      let uniqueFilenamePart = 
-       format( "_%04d%02d%02d_%02d%02d%02d",
-                              log_date.getFullYear(), log_date.getMonth() + 1, log_date.getDate(),
-                              log_date.getHours(), log_date.getMinutes(), log_date.getSeconds());
-      autotest_logfile_path = ensurePathEndSlash(autotest_result_directory) + "autotest" +  uniqueFilenamePart + ".log";
+
+      // If not sepecified
+      if (autotest_logfile_path == null)
+      {
+            let log_date = new Date;
+            let uniqueFilenamePart = 
+            format( "_%04d%02d%02d_%02d%02d%02d",
+                                    log_date.getFullYear(), log_date.getMonth() + 1, log_date.getDate(),
+                                    log_date.getHours(), log_date.getMinutes(), log_date.getSeconds());
+            autotest_logfile_path = ensurePathEndSlash(autotest_result_directory) + "autotest" +  uniqueFilenamePart + ".log";
+      }
 
  
       // Execute tests

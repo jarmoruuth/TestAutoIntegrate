@@ -3,10 +3,11 @@
   "version": 1,
   "autosetup": "01-BasicMonochromeCrop.json",
   "commands": [
-    ["execute", 
+     ["forceCloseAll"],
+     ["execute", 
       [
-        ["closeAllPrefix"],
         ["run"],
+        ["noteln","RUN TERMINATED"],
         ["setPar", "extra_darker_background", true],
         ["setPar", "crop_to_common_area", false],
         ["setPrefix", "cont"],
@@ -16,5 +17,4 @@
       ]
     ]
   ]
-    
 }
