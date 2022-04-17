@@ -1,0 +1,15 @@
+{
+  "type": "control",
+  "version": 1,
+  "autosetup": "01-BasicMonochromeCrop.json",
+  "commands": [
+     ["forceCloseAll"],
+     ["execute", 
+      [
+        ["run"],
+        ["noteln","Main run done, exit test"],
+        ["exit"]
+      ]
+    ]
+  ]
+}

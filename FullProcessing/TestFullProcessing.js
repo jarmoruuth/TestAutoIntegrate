@@ -245,12 +245,20 @@ let Autotest = (function() {
             this.__base__ = Object;
             this.__base__();   
 
+            // --- Test specification
             this.test_name = test_name;
             this.test_directory = test_directory; // Root of test files
             this.autosetup_path = autosetup_path;
             this.command_list = command_list;  // Object or null
 
-            this.result = ['Not executed'];
+            // --- Test execution history and results
+            // errors, an empty array if executed successfuly
+            this.errors = [];
+
+            this.addError = function(msg)
+            {
+                  this.errors[this.errors.length] = msg;  
+            }
  
             this.toString = () => {
                   return this.test_name + "(" + this.autosetup_path +")";
@@ -305,7 +313,7 @@ let Autotest = (function() {
                         throw new Error("Control file '" + test_path + "' has no 'command' property");
                   }
                   command_list = test_definition['commands'];
-                  console.writeln("DEBUG command ", command_list);
+                  //console.writeln("DEBUG command ", JSON.stringify(command_list));
 
                   if (! 'autosetup' in test_definition || test_definition['autosetup'] == undefined)
                   {
@@ -343,7 +351,8 @@ let Autotest = (function() {
 
 
 
-            console.writeln("DEBUG: Loaded ",test_name, " ", is_control, "\n    path: ", autosetup_path, "\n    Commands: ", command_list);
+            console.writeln("DEBUG: Loaded ",test_name, " ", is_control, "\n    path: ", autosetup_path, "\n    Commands: ", 
+                  JSON.stringify(command_list));
 
             return new Test(test_name, test_directory, autosetup_path, command_list);
    
@@ -438,11 +447,33 @@ let Autotest = (function() {
             let newWindows = newReferenceState['windows'];
             let createdWindows = newWindows.filter(id => oldWindows.indexOf(id)<0);
             let deletedWindows = oldWindows.filter(id => newWindows.indexOf(id)<0);
-            console.noteln("Autotest: Created ImageWindow: ", createdWindows);
-            if (deletedWindows.length>0) console.noteln("Autotest: Removed ImageWindow: ", deletedWindows);
+            console.noteln("Autotest: Test created the windows: ", createdWindows);
+            if (deletedWindows.length>0) console.noteln("Autotest: and removed the windows: ", deletedWindows);
             return [createdWindows, deletedWindows];
       }
 
+      // Parse the known log for errors, add them to test error
+      let parse_log_for_errors = function(test, resultDirectory)
+      {
+            let logFilePath = ensurePathEndSlash(resultDirectory)+'/AutoProcessed/AutoIntegrate.log';
+            if (! File.exists(logFilePath))
+            {
+                  test.addError("Log file '" + logFilePath + "' not found");
+            }
+            else 
+            {
+                  let log_lines = File.readLines( logFilePath);
+                  for (let i in log_lines)
+                  {
+                        let line = log_lines[i];
+                        let errorIndex = line.indexOf("Error: ");
+                        if (errorIndex>0)
+                        {
+                              test.addError("log - " + line.substring(errorIndex));
+                        }
+                  }
+            }
+      }
 
       return {
             'Test': Test,
@@ -452,7 +483,8 @@ let Autotest = (function() {
             'forceCloseAll': forceCloseAll,
             'buildReferenceState': buildReferenceState,
             'saveReferenceState': saveReferenceState,
-            'compareReferenceState': compareReferenceState
+            'compareReferenceState': compareReferenceState,
+            'parse_log_for_errors': parse_log_for_errors
       };
 }) ();
 
@@ -465,7 +497,7 @@ let Autotest = (function() {
 // not processed by Autointegrate, like closing all windows.
 let autotest_control_commands = {
                   
-      'setPar': function(command) {
+      'setPar': function(test, command) {
             let name = command[1];
             let value = command[2];
             console.noteln("Autotest: Set parameter ", name, " to ", value, " (", typeof value, ")");
@@ -485,35 +517,35 @@ let autotest_control_commands = {
             }
       },
             
-      'setPrefix': function(command) {
+      'setPrefix': function(test, command) {
             let prefix = command[1];
             console.noteln("Autotest: Set prefix to ", prefix);
             ppar.win_prefix = prefix;
       },
 
-      'setLastDir': function(command) {
+      'setLastDir': function(test, command) {
             let lastDir = command[1];
             console.noteln("Autotest: Set lastDir to ", lastDir);
             ppar.lastDir = lastDir;
       },
 
-      'setOutputRootDir': function(command) {
+      'setOutputRootDir': function(test, command) {
             let outputDir = command[1];
             console.noteln("Autotest: Set outputRootDir to ", outputDir);
             outputRootDir = outputDir;
       },
-      'forceCloseAll': function(command) {
+      'forceCloseAll': function(test, command) {
                   Autotest.forceCloseAll();
       },
-      'noteln': function(command) {
+      'noteln': function(test, command) {
             let text = command[1];
             console.noteln(text);
       },
-      'warningln': function(command) {
+      'warningln': function(test, command) {
             let text = command[1];
             console.warningln(text);
       },
-      'writeln': function(command) {
+      'writeln': function(test, command) {
             let text = command[1];
             console.writeln(text);
       },
@@ -524,13 +556,14 @@ let autotest_control_commands = {
 // requires the dialog as a parameter, for example to execute the dialog.
 let autotest_launch_commands = {
                   
-      'execute': function(dialog, command) {
+      'execute': function(dialog, test, command) {
+            //console.writeln("DEBUG: autotest_launch_commands, execute command: ",command.length," ", JSON.stringify(command));
             let command_list = [["run"]];  // default command if none is specified
             if (command.length > 1)
             {
-                  command_list = command[1];
+                  command_list = command[1]; 
             }
-            console.noteln("Autotest: execute dialog with commands: ", command_list);
+            console.noteln("Autotest: execute dialog with commands: ", JSON.stringify(command_list));
             // Update the command list to the parameter of 'execute'
             dialog.command_list = command_list;
             dialog.execute();
@@ -543,13 +576,14 @@ let autotest_launch_commands = {
 // -----------------------------------------------------------------------------------------
 
 // A subclass of AutoIntegrateDialog created for each test to execute the specific test file
-function AutoIntegrateTestDialog(test_file)
+function AutoIntegrateTestDialog(test)
 {
       this.__base__ = AutoIntegrateDialog;
       this.__base__();
-      this.test_file = test_file;
-      this.command_list = ["run"]; // Default command
-      this.test_name = File.extractName(this.test_file);
+      this.command_list = ["run"]; // Default command, updated at test creation
+      this.current_test = test;
+      this.test_name = test.test_name;
+      this.exit_requested = false;
 
       // Time used to close the window as a direct call does not work
       this.cancelTimer = new Timer( 2, false );
@@ -566,8 +600,9 @@ function AutoIntegrateTestDialog(test_file)
       this.onExecute = function()
       {
             try {
-                  console.noteln("Autotest: onExecute() for test '", this.test_name, '", loading file list and settings from ', this.test_file);
-                  var pagearray = parseJsonFile(this.test_file, false);
+                  let autosetup_file = this.current_test.autosetup_path;
+                  console.noteln("Autotest: onExecute() for test '", this.test_name, '", loading file list and settings from ', autosetup_file);
+                  var pagearray = parseJsonFile(autosetup_file, false);
 
                   for (var i = 0; i < pagearray.length; i++) {
                         if (pagearray[i] != null) {
@@ -576,17 +611,34 @@ function AutoIntegrateTestDialog(test_file)
                   }
                   updateInfoLabel(this);
       
-                  for (let command_index in this.command_list)
+                  for (let command_index=0; command_index<this.command_list.length; command_index++)
                   {
                         let command = this.command_list[command_index];
-                        let commandNmb = 1+parseInt(command_index);
-                        console.noteln("Autotest: ", this.test_name, " command ",commandNmb, ": ", command);
-                        this.autotest_execute_dialog_command(command);
+                        let commandNmb = command_index+1;
+                        console.noteln("Autotest: ", this.test_name, " command ",commandNmb, ": ", JSON.stringify(command));
+                        this.autotest_execute_dialog_command(this.current_test, command);
+                        //console.writeln("DEBUG: execution of command '", command[0], "' terminated");
+                        // Nothing to do after exit at this level
+                        if (this.exit_requested) {
+                              if (command_index<this.command_list.length-1)
+                              {
+                                    console.warningln("Autotest: Exiting before end of command list due to 'exit'");
+                              }
+                              break;
+                        }
+                  }
+                  if (!this.exit_requested)
+                  {
+                        console.warningln("Autotest: Exiting window at end of command list");
+                        this.exit_requested = true;
+                        this.cancelTimer.start();  
                   }
             } catch(x) {
-                  console.criticalln(x);
-                  console.warningln("Canceling window due to error");
-                  autoIntegrateDialog.cancelTimer.start();
+                  console.criticalln("Autotest: Exception in onExecute: " + x);
+                  this.current_test.addError("Exception in onExecute: " + x);
+                  console.warningln("Autotest: losing window due to error");
+                  this.exit_requested = true;
+                  this.cancelTimer.start();
             }
 
       }
@@ -599,14 +651,14 @@ function AutoIntegrateTestDialog(test_file)
       this.dialog_commands = {
 
             // Must be in context of dialog because execute a button
-            'closeAllPrefix': function(autoIntegrateDialog,command) {
+            'closeAllPrefix': function(autoIntegrateDialog, test, command) {
                   console.noteln("Autotest: Closing all prefix windows");
                   // Not in 'this', for whatever reason
                   closeAllPrefixButton.onClick();
             },
 
             // Execute the 'run' command
-            'run': function(autoIntegrateDialog, command) {
+            'run': function(autoIntegrateDialog, test, command) {
 
                   Autotest.saveReferenceState();
 
@@ -620,8 +672,8 @@ function AutoIntegrateTestDialog(test_file)
                   Autotest.compareReferenceState();
             },
 
-            // Execute the 'cintinue' command
-            'continue': function(autoIntegrateDialog, command) {
+            // Execute the 'continue' command
+            'continue': function(autoIntegrateDialog, test, command) {
                   Autotest.saveReferenceState();
 
                   // The next beginLog will save the autoexex console log.
@@ -637,24 +689,25 @@ function AutoIntegrateTestDialog(test_file)
             // execute the exit dialog command, this closes the dialog and exit
             // the onExecute environment.
             // Must be called aysychronously to avoid some deadlock
-            'exit': function(autoIntegrateDialog, command) {
+            'exit': function(autoIntegrateDialog, test, command) {
                   console.noteln("Autotest: Run completed, removing window in 2 seconds");
+                  autoIntegrateDialog.exit_requested = true;
                   autoIntegrateDialog.cancelTimer.start();
             },
       }
 
-      this.autotest_execute_dialog_command = function(command)
+      this.autotest_execute_dialog_command = function(test, command)
       {
             let command_name = command[0];
             // First check commands specific to dialog
             if (command_name in this.dialog_commands) {
                   let command_function = this.dialog_commands[command_name];
-                  command_function(this, command);
+                  command_function(this, test, command);
 
             // Then commands generic
             } else if (command_name in autotest_control_commands) {
-                        let command_function = autotest_control_commands[command_name];
-                        command_function(command);
+                  let command_function = autotest_control_commands[command_name];
+                  command_function(test, command);
             } else {
                   // TODO Log to error, option to exit
                   console.warningln("Autotest: Unknown dialog or control command '", command_name, "' ignored");         
@@ -666,39 +719,17 @@ function AutoIntegrateTestDialog(test_file)
 AutoIntegrateTestDialog.prototype = new AutoIntegrateDialog();
 
 
-function look_for_errors(resultDirectory)
-{
-      let errors = [];
-      let logFilePath = ensurePathEndSlash(resultDirectory)+'/AutoProcessed/AutoIntegrate.log';
-      if (! File.exists(logFilePath))
-      {
-            errors[errors.length] = "Log file '" + logFilePath + "' not found";
-            return errors;
-      }
 
-      let log_lines = File.readLines( logFilePath);
-      for (let i in log_lines)
-      {
-            let line = log_lines[i];
-            let errorIndex = line.indexOf("Error: ");
-            if (errorIndex>0)
-            {
-                  errors[errors.length]  = "log - " + line.substring(errorIndex);
-            }
-      }
-      return errors;
 
-}
-
-function autotest_execute_launch_command(dialog, command)
+function autotest_execute_launch_command(dialog, test, command)
 {
       let command_name = command[0];
       if (command_name in autotest_control_commands) {
             let command_function = autotest_control_commands[command_name];
-            command_function(dialog, command);
+            command_function(dialog, test, command);
       } else if (command_name in autotest_launch_commands) {
             let command_function = autotest_launch_commands[command_name];
-            command_function(dialog, command);
+            command_function(dialog, test, command);
       } else {
             // TODO Log to error, option to exit
             console.warningln("Autotest: Unknown launch or control command '", command_name, "' ignored");         
@@ -706,8 +737,12 @@ function autotest_execute_launch_command(dialog, command)
 }
 
 // Execute a single test sequence
-function execute_test(test_name, resultRootDirectory, autosetup_file_path, command_list)
+function execute_test(test, resultRootDirectory)
 {
+      let test_name = test.test_name;
+      let autosetup_file_path = test.autosetup_path;
+      let command_list = test.command_list;
+
       let resultDirectory = ensurePathEndSlash((resultRootDirectory+test_name).trim());
       console.noteln("===================================================");
       console.noteln("Autotest: Executing test '", test_name, "' with results in ", resultDirectory);
@@ -717,31 +752,29 @@ function execute_test(test_name, resultRootDirectory, autosetup_file_path, comma
             console.noteln("    ", JSON.stringify(command_list[i]));
       }
 
-      let errors = ["Unknown"];
-
       try {
 
             outputRootDir = resultDirectory;
 
-            var dialog = new AutoIntegrateTestDialog(autosetup_file_path);
+            let dialog = new AutoIntegrateTestDialog(test);
 
             for (let command_index in command_list)
             {
                   let command = command_list[command_index];
                   let commandNmb = 1+parseInt(command_index);
-                  console.noteln("Autotest: ", test_name, " command ",commandNmb, ": ", command);
-                  autotest_execute_launch_command(dialog, command);
+                  console.noteln("Autotest: ", test_name, " command ",commandNmb, ": ", JSON.stringify(command));
+                  autotest_execute_launch_command(dialog, test, command);
+                  //console.writeln("DEBUG: top level command '", command[0], "' completed")
             }
 
-            errors = look_for_errors(resultDirectory);
+            Autotest.parse_log_for_errors(test, resultDirectory);
       
-            console.noteln("Autotest; ", test_name, "' completed normally");
+            console.noteln("Autotest: ", test_name, "' completed normally");
       }
        catch (x) {
-            console.warningln("Autotest '", test_name, " terminated with error: ",  x );
-            errors = ["Exception: " + x];
+            console.criticalln("Autotest: '", test_name, " Exception in execute_test(): ",  x );
+            test.addError("Exception in execute_test(): " + x);
       }
-      return errors;
 }
 
 
@@ -800,11 +833,7 @@ try
       for (let i =0; i<tests.length; i++)  
       {
             let test = tests[i];
-            let test_name = test.test_name;
-            let autosetup_file_path = test.autosetup_path;
-            let command_list = test.command_list;
- 
-            test.result = execute_test(test_name, autotest_result_directory, autosetup_file_path, command_list);
+            execute_test(test, autotest_result_directory);
       }
 
       console.noteln("-----------------------------------------------------");
@@ -813,21 +842,22 @@ try
       {
             let test = tests[i];
             let test_name = test.test_name;
-            let results =  test.result;
-            if (results.length == 0)
+            let errors =  test.errors;
+            if (errors.length == 0)
             {
                   console.noteln("    ",test_name, " ok");
             } else {
                   console.noteln("    ",test_name, ": errors");
-                  for (let error_index in results)
+                  for (let error_index in errors)
                   {
-                        console.noteln("         ", results[error_index]);
+                        console.noteln("         ", errors[error_index]);
                   }
             }
       }
 
       AutotestLog.saveAutotestLog();
-      console.noteln("Autotest: logfile written to " + autotest_logfile_path);
+      // null in case of error writing
+      if (autotest_logfile_path != null) console.noteln("Autotest: logfile written to " + autotest_logfile_path);
 
       console.noteln("TestAutoIntegrate terminated");
  

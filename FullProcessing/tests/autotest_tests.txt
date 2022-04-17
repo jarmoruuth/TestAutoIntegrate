@@ -2,6 +2,8 @@
 
 # List of tests files, absolute or relative to the path of this file.
 
-01-BasicMonochromeCrop_control.json
-02-BasicLRGBcrop.json
+#01-BasicMonochromeCrop_control_no_continue.json
+01-BasicMonochromeCrop_control_with_continue.json
+#01-BasicMonochromeCrop_control_continue_only.json
+# 02-BasicLRGBcrop.json
 

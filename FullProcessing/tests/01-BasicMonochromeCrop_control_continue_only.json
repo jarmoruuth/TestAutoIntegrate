@@ -1,0 +1,17 @@
+{
+  "type": "control",
+  "version": 1,
+  "autosetup": "01-BasicMonochromeCrop.json",
+  "commands": [
+     ["forceCloseAll"],
+     ["execute", 
+      [
+        ["setPar", "extra_darker_background", true],
+        ["setPar", "crop_to_common_area", false],
+        ["setPrefix", "cont"],
+        ["continue"],
+        ["exit"]
+      ]
+    ]
+  ]
+}
