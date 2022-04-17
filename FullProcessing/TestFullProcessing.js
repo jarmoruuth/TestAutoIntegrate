@@ -268,19 +268,23 @@ let Autotest = (function() {
 
       // -----------------------------------------------------------------------------------
 
-      // class TestManager keeps track of all the tests being processed
-      let TestManager = function()
-      {
-            this.__base__ = Object;
-            this.__base__();   
-
-            this.init = () => {
-                  if  (! File.isFile(this.filePath))
-                  {
-                        throw new Error("File not found: " + this.filePath);
-                  }
+      // Make path absolute relatively to rootPath if it is relative
+      let resolveRelativePath = function(path, rootPath)
+      {        
+            // console.writeln("DEBUG: resolveRelativePath ( ",path, ",", rootPath,")");
+            if (pathIsRelative(path))
+            {
+                  let resolvedPath = ensurePathEndSlash(rootPath) + path;
+                  //console.writeln("DEBUG: resolveRelativePath resolved as ",resolvedPath);
+                  return resolvedPath;
+            } 
+            else 
+            {
+                  //console.writeln("DEBUG: resolveRelativePath absolute ",path);
+                  return path;
             }
       }
+
 
       // -----------------------------------------------------------------------------------
 
@@ -321,15 +325,9 @@ let Autotest = (function() {
                   }
                   let autosetup = test_definition['autosetup'];
                   
-                  //console.writeln("DEBUG autosetup ", autosetup);
+                  //console.writeln("DEBUG autosetup ", autosetup, " ", test_directory);
 
-                  if (pathIsRelative(autosetup))
-                  {
-                        autosetup_path = ensurePathEndSlash(test_directory) + autosetup;
-                  } else 
-                  {
-                        autosetup_path = autosetup;
-                  }
+                  autosetup_path = resolveRelativePath(autosetup, test_directory);
 
                   // Check that autosetup is a valid json file
                   if (! File.exists(autosetup_path))
@@ -350,28 +348,13 @@ let Autotest = (function() {
             }
 
 
-
-            console.writeln("DEBUG: Loaded ",test_name, " ", is_control, "\n    path: ", autosetup_path, "\n    Commands: ", 
-                  JSON.stringify(command_list));
+            //console.writeln("DEBUG: Loaded ",test_name, " ", is_control, "\n    path: ", autosetup_path, "\n    Commands: ", 
+            //      JSON.stringify(command_list));
 
             return new Test(test_name, test_directory, autosetup_path, command_list);
    
       }
  
-      let resolvePath = function(root_path, path)
-      {
-            if (pathIsRelative(path))
-            {
-                  return ensurePathEndSlash(root_path) + path;
-            } else {
-                  return path;
-            }
-      }
-
-      let extractDirectory = function(path) 
-      {
-            return path.substring(0,path.lastIndexOf('/')+1);
-      }
 
       // function loadTestList fin the list of text to execute
       let loadTestList = function(test_list_path)
@@ -388,8 +371,8 @@ let Autotest = (function() {
                   let line = lines[i].trim();
                   if (line.length == 0) continue; // skip empty line
                   if (line.startsWith('#')) continue; // skip comment
-                  let test_path = resolvePath(root_path,line);
-                  console.writeln(File.fullPath(test_path));
+                  let test_path = resolveRelativePath(line, root_path);
+                  console.writeln("DEBUG: Test full path " +File.fullPath(test_path));
                   if (File.exists(test_path)) {
                         test_paths[test_paths.length] = test_path;
                   } else if (File.directoryExists(test_path)) {
@@ -402,6 +385,8 @@ let Autotest = (function() {
             return test_paths;
       }
 
+      // ------------------------------------------------------------
+      // Image and window manipulation
 
       let forceCloseAll = function()
       {
@@ -413,6 +398,33 @@ let Autotest = (function() {
             }           
       }
 
+      let loadImage = function(name, path)
+      {
+            //console.writeln("DEBUG: loadImage ", name, " ",path);
+            let resolved_path = resolveRelativePath(path, autotest_result_directory);
+            try {
+                  let window = ImageWindow.open(resolved_path)[0];
+                  window.mainView.id = name;
+                  window.show();
+            } catch (x) {
+                  console.warningln("Autotest: Cannot load image '", name, "' from '", resolved_path, "' error: " + x);
+                  this.current_test.addError(" Cannot load image '", name, "' from '", resolved_path, "' error: " + x);
+            }
+      }
+
+      let saveImage = function(name, path)
+      {
+            let resolved_path = resolveRelativePath(path, autotest_result_directory);        
+            try {
+                   let window = windowById(name);
+                  window.saveAs(path);
+            } catch (x) {
+                  console.warningln("Autotest: Cannot load image '", name, "' to '", resolved_path, "' error: " + x);
+                  this.current_test.addError(" Cannot load image '", name, "' to '", resolved_path, "' error: " + x);
+            }
+      }
+
+      // ------------------------------------------------------------
       // A reference state is a set of information about the state of the system
       // (currently the windows in the workspace) that may be saved and compared
       // with an expected or previous state.
@@ -452,6 +464,8 @@ let Autotest = (function() {
             return [createdWindows, deletedWindows];
       }
 
+      // ------------------------------------------------------------
+
       // Parse the known log for errors, add them to test error
       let parse_log_for_errors = function(test, resultDirectory)
       {
@@ -475,12 +489,15 @@ let Autotest = (function() {
             }
       }
 
+      // ------------------------------------------------------------
+
       return {
             'Test': Test,
-            'TestManager': TestManager,
             'loadTest': loadTest,
             'loadTestList': loadTestList,
             'forceCloseAll': forceCloseAll,
+            'loadImage': loadImage,
+            'saveImage': saveImage,
             'buildReferenceState': buildReferenceState,
             'saveReferenceState': saveReferenceState,
             'compareReferenceState': compareReferenceState,
@@ -536,6 +553,17 @@ let autotest_control_commands = {
       },
       'forceCloseAll': function(test, command) {
                   Autotest.forceCloseAll();
+      },
+      'loadImage': function(test, command) {
+            //console.writeln("DEBUG: loadImage exec ", JSON.stringify(command));
+            let name = command[1];
+            let path = command[2];
+            Autotest.loadImage(name, path);
+      },
+      'saveImage': function(test, command) {
+            let name = command[1];
+            let path = command[2];
+            Autotest.saveImage(name, path);
       },
       'noteln': function(test, command) {
             let text = command[1];
@@ -726,7 +754,7 @@ function autotest_execute_launch_command(dialog, test, command)
       let command_name = command[0];
       if (command_name in autotest_control_commands) {
             let command_function = autotest_control_commands[command_name];
-            command_function(dialog, test, command);
+            command_function(test, command);
       } else if (command_name in autotest_launch_commands) {
             let command_function = autotest_launch_commands[command_name];
             command_function(dialog, test, command);
