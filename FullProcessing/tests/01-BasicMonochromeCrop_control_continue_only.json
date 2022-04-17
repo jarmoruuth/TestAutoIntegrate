@@ -11,6 +11,7 @@
         ["setPar", "monochrome_image", true],
         ["setPrefix", "snd"],
         ["continue"],
+        ["saveImage", "snd_AutoMono_extra", "01-BasicMonochromeCrop_control_continue_only/CopyOfAutoMono.xisf"],
         ["exit"]
       ]
     ]

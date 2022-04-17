@@ -398,31 +398,6 @@ let Autotest = (function() {
             }           
       }
 
-      let loadImage = function(name, path)
-      {
-            //console.writeln("DEBUG: loadImage ", name, " ",path);
-            let resolved_path = resolveRelativePath(path, autotest_result_directory);
-            try {
-                  let window = ImageWindow.open(resolved_path)[0];
-                  window.mainView.id = name;
-                  window.show();
-            } catch (x) {
-                  console.warningln("Autotest: Cannot load image '", name, "' from '", resolved_path, "' error: " + x);
-                  this.current_test.addError(" Cannot load image '", name, "' from '", resolved_path, "' error: " + x);
-            }
-      }
-
-      let saveImage = function(name, path)
-      {
-            let resolved_path = resolveRelativePath(path, autotest_result_directory);        
-            try {
-                   let window = windowById(name);
-                  window.saveAs(path);
-            } catch (x) {
-                  console.warningln("Autotest: Cannot load image '", name, "' to '", resolved_path, "' error: " + x);
-                  this.current_test.addError(" Cannot load image '", name, "' to '", resolved_path, "' error: " + x);
-            }
-      }
 
       // ------------------------------------------------------------
       // A reference state is a set of information about the state of the system
@@ -496,12 +471,11 @@ let Autotest = (function() {
             'loadTest': loadTest,
             'loadTestList': loadTestList,
             'forceCloseAll': forceCloseAll,
-            'loadImage': loadImage,
-            'saveImage': saveImage,
             'buildReferenceState': buildReferenceState,
             'saveReferenceState': saveReferenceState,
             'compareReferenceState': compareReferenceState,
-            'parse_log_for_errors': parse_log_for_errors
+            'parse_log_for_errors': parse_log_for_errors,
+            'resolveRelativePath': resolveRelativePath
       };
 }) ();
 
@@ -558,12 +532,35 @@ let autotest_control_commands = {
             //console.writeln("DEBUG: loadImage exec ", JSON.stringify(command));
             let name = command[1];
             let path = command[2];
-            Autotest.loadImage(name, path);
+            let resolved_path = Autotest.resolveRelativePath(path, autotest_result_directory);
+            try {
+                  let window = ImageWindow.open(resolved_path)[0];
+                  window.mainView.id = name;
+                  window.show();
+            } catch (x) {
+                  console.warningln("Autotest: Cannot load image '", name, "' from '", resolved_path, "' error: " + x);
+                  test.addError(" Cannot load image '", name, "' from '", resolved_path, "' error: " + x);
+            }
       },
       'saveImage': function(test, command) {
             let name = command[1];
             let path = command[2];
-            Autotest.saveImage(name, path);
+            let resolved_path = Autotest.resolveRelativePath(path, autotest_result_directory);        
+            try {
+                  let window = ImageWindow.windowById(name);
+                  // Save image. No format options, no warning messages, 
+                  // no strict mode, no overwrite checks.
+                  let success = window.saveAs(resolved_path, false, false, false, false);
+                  if (!success)
+                  {
+                        console.warningln("Autotest: image '", name, "' not saved to '", resolved_path);
+                        test.addError(" Cannot image '", name, "' not saved to '", resolved_path);      
+                  }
+            } catch (x) {
+                  console.warningln("Autotest: Cannot save image '", name, "' to '", resolved_path, "' error: " + x);
+                  test.addError(" Cannot save image '", name, "' to '", resolved_path, "' error: " + x);
+            }
+
       },
       'noteln': function(test, command) {
             let text = command[1];
