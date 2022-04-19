@@ -31,7 +31,8 @@ let autotest_script_directory = autotest_script_path.substring(0,autotest_script
 // *********************************************************************************************
 // the directoy containing json files of the tests
 // They must be in the format AutoSetup.json but named after the test
-var autotest_tests_directory = autotest_script_directory;
+var autotest_tests_directory = autotest_script_directory + "tests/";
+//var autotest_tests_directory = autotest_script_directory;
 //var autotest_tests_directory = "D:/AI_TESTS/"
 
 
