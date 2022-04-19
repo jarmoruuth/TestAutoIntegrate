@@ -10,6 +10,7 @@
 
 var debug = true;
 var get_process_defaults = false;
+var use_persistent_module_settings = false;  // do not read defaults from persistent module settings
 
 // By default assume that repository is a sibling of AutoIntegrate
 // ************* Adapt if needed ********************
@@ -31,6 +32,7 @@ let autotest_script_directory = autotest_script_path.substring(0,autotest_script
 // the directoy containing json files of the tests
 // They must be in the format AutoSetup.json but named after the test
 var autotest_tests_directory = autotest_script_directory + "tests/";
+//var autotest_tests_directory = autotest_script_directory;
 //var autotest_tests_directory = "D:/AI_TESTS/"
 
 
@@ -249,6 +251,7 @@ let Autotest = (function() {
             this.test_name = test_name;
             this.test_directory = test_directory; // Root of test files
             this.command_list = command_list;  // Object or null
+            this.final_image = null;
 
             // --- Test execution history and results
             // errors, an empty array if executed successfuly
@@ -292,8 +295,15 @@ let Autotest = (function() {
       {
             //console.writeln("DEBUG: loadTest loading '",test_path, "'", typeof test_path);
 
+            // we support format: test_path[,test_name]
+            let test_line_split = test_path.split(",");
+            test_path = test_line_split[0].trim();
             let test_directory = File.extractDrive(test_path) + File.extractDirectory(test_path);
             let test_name = File.extractName(test_path);
+            if (test_line_split.length > 1) {
+                  // use test name from the file
+                  test_name = test_line_split[1].trim();
+            }
 
             let test_definition = null;
             try {
@@ -346,9 +356,13 @@ let Autotest = (function() {
                   let line = lines[i].trim();
                   if (line.length == 0) continue; // skip empty line
                   if (line.startsWith('#')) continue; // skip comment
-                  let test_path = resolveRelativePath(line, root_path);
+                  let line_split = line.split(",");
+                  let test_path = resolveRelativePath(line_split[0], root_path);
                   console.writeln("DEBUG: Test full path " +File.fullPath(test_path));
                   if (File.exists(test_path)) {
+                        for (let i = 1; i < line_split.length; i++) {
+                              test_path = test_path + "," + line_split[i];
+                        }
                         test_paths[test_paths.length] = test_path;
                   } else if (File.directoryExists(test_path)) {
                         throw Error("Test in directory not supported '" + test_path + "', line " + (i+1));
@@ -419,7 +433,12 @@ let Autotest = (function() {
       // Parse the known log for errors, add them to test error
       let parse_log_for_errors = function(test, resultDirectory)
       {
-            let logFilePath = ensurePathEndSlash(resultDirectory)+'/AutoProcessed/AutoIntegrate.log';
+            // get logFilePath from the script
+            let logFilePath = run_results.processing_steps_file;
+            if (run_results.fatal_error != '') {
+                  // we have a fatal error, save it
+                  test.addError("fatal - " + run_results.fatal_error);
+            }
             if (! File.exists(logFilePath))
             {
                   test.addError("Log file '" + logFilePath + "' not found");
@@ -498,7 +517,7 @@ let autotest_control_commands = {
       'setOutputRootDir': function(test, command) {
             let outputDir = command[1];
             console.noteln("Autotest: Set outputRootDir to ", outputDir);
-            outputRootDir = outputDir;
+            outputRootDir = ensurePathEndSlash(outputDir);
       },
       'forceCloseAll': function(test, command) {
                   Autotest.forceCloseAll();
@@ -751,7 +770,9 @@ function execute_test(test, resultRootDirectory)
       let autosetup_file_path = test.autosetup_path;
       let command_list = test.command_list;
 
-      let resultDirectory = ensurePathEndSlash((resultRootDirectory+test_name).trim());
+      // not sure what resultDirectory should be
+      //let resultDirectory = ensurePathEndSlash((resultRootDirectory+test_name).trim());
+      let resultDirectory = test.test_directory;
       console.noteln("===================================================");
       console.noteln("Autotest: Executing test '", test_name, "' with results in ", resultDirectory);
       console.noteln("Autotest: Commands to execute: ")
@@ -762,7 +783,7 @@ function execute_test(test, resultRootDirectory)
 
       try {
 
-            outputRootDir = resultDirectory;
+            outputRootDir = ensurePathEndSlash(resultDirectory);
 
             let dialog = new AutoIntegrateTestDialog(test);
 
@@ -774,6 +795,9 @@ function execute_test(test, resultRootDirectory)
                   autotest_execute_launch_command(dialog, test, command);
                   //console.writeln("DEBUG: top level command '", command[0], "' completed")
             }
+
+            // get final image from the script
+            test.final_image = run_results.final_image_file;
 
             Autotest.parse_log_for_errors(test, resultDirectory);
       
@@ -795,11 +819,9 @@ try
 
       AutotestLog.initializeAutotestLog();
 
-      // Autotest.forceCloseAll();
+      Autotest.forceCloseAll();
 
       autotest_logheader();
-
-      autotest_initialize();  
 
       // Override function to disable persistent settings
       savePersistentSettings = function()
@@ -840,6 +862,8 @@ try
       // Execute tests
       for (let i =0; i<tests.length; i++)  
       {
+            // set defaults before each test run
+            autotest_initialize();
             let test = tests[i];
             execute_test(test, autotest_result_directory);
       }
@@ -860,6 +884,30 @@ try
                   {
                         console.noteln("         ", errors[error_index]);
                   }
+            }
+      }
+
+      // Load final images for a visual review
+      console.noteln("-----------------------------------------------------");
+      console.noteln("Autotest: Load final images for review");
+      Autotest.forceCloseAll();
+      for (let i=0; i<tests.length; i++)  
+      {
+            let test = tests[i];
+            if (test.final_image != null) {
+                  console.noteln(test.test_name + ":" + test.final_image);
+                  // load final image
+                  let window = openImageWindowFromFile(test.final_image);
+                  window.mainView.id = test.test_name + "_" + File.extractName(test.final_image);
+                  window.show();
+                  // load reference image
+                  let reference_image = File.extractDrive(test.final_image) + File.extractDirectory(test.final_image) +
+                                        "/reference_" + File.extractName(test.final_image) + ".xisf";
+                  window = openImageWindowFromFile(reference_image);
+                  window.mainView.id = test.test_name + "_" + File.extractName(reference_image);
+                  window.show();
+            } else {
+                  console.noteln(test.test_name + ": No final image");
             }
       }
 
