@@ -1,2 +1,5 @@
 # In case result files are stored in the same location as the test
 FullProcessing/results
+FullProcessing/tests/AutoOutput
+FullProcessing/tests/AutoProcessed
+FullProcessing/tests/*.xisf
