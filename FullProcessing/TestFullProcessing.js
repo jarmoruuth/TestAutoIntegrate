@@ -451,11 +451,51 @@ let Autotest = (function() {
                         let line = log_lines[i];
                         let errorIndex = line.indexOf("Error: ");
                         if (errorIndex>0)
-                        {
-                              test.addError("log - " + line.substring(errorIndex));
+                        {                              
+                              if (line.indexOf("FileDataCache::Load(): Corrupted cache data"))
+                              {
+                                    test.addError("log - " + line.substring(errorIndex) + "\n     To clear the cache, open ImageIntergration, select the tool (at bottom right) and clean both caches");
+                              }
+                              else{
+                                    test.addError("log - " + line.substring(errorIndex));
+                              }
                         }
                   }
             }
+      }
+
+      /// Make a view id valid (based on a function of mschuster)
+      let ensureValidViewId = function(id) {
+            let validId = "";
+            if (id.length == 0) {
+                  return "_";
+            }
+            // First character must not be a number, insert a _ if it is a number
+            let c = id.charAt(0);
+            if ("0" <= c && c <= "9") {
+                  validId = validId + "_";
+            }
+            // All characters must be letters, digits or underline
+            for (var i = 0; i != id.length; ++i) {
+                  c = id.charAt(i);
+
+                  // replace invalid characters by _
+                  validId = validId + (
+                        (("0" <= c && c <= "9") || ("a" <= c && c <= "z") || ("A" <= c && c <= "Z")) ? c : "_"
+                  );
+                  // Collpase too many _
+                  if (validId.length > 3 && validId.substring(validId.length - 4, validId.length) == "____") {
+                        validId = validId.substring(0, validId.length - 1);
+                  }
+            }
+
+            return validId;
+      }
+
+      let ensureValidNewViewId = function(id)
+      {
+            // TODO Check tha there is not already a view with the same name
+            return ensureValidViewId(id)
       }
 
       // ------------------------------------------------------------
@@ -469,7 +509,10 @@ let Autotest = (function() {
             'saveReferenceState': saveReferenceState,
             'compareReferenceState': compareReferenceState,
             'parse_log_for_errors': parse_log_for_errors,
-            'resolveRelativePath': resolveRelativePath
+            'resolveRelativePath': resolveRelativePath,
+            'ensureValidViewId': ensureValidViewId,
+            'ensureValidNewViewId': ensureValidNewViewId
+
       };
 }) ();
 
@@ -529,7 +572,7 @@ let autotest_control_commands = {
             let resolved_path = Autotest.resolveRelativePath(path, autotest_result_directory);
             try {
                   let window = ImageWindow.open(resolved_path)[0];
-                  window.mainView.id = name;
+                  window.mainView.id = Autotest.ensureValidViewId(name);
                   window.show();
             } catch (x) {
                   console.warningln("Autotest: Cannot load image '", name, "' from '", resolved_path, "' error: " + x);
@@ -800,8 +843,16 @@ function execute_test(test, resultRootDirectory)
             test.final_image = run_results.final_image_file;
 
             Autotest.parse_log_for_errors(test, resultDirectory);
+
+            // Check that the final image  exists, otherwise this is an error in the test
+            if (!File.exists(test.final_image)) 
+            {
+                  test.addError("Expected creation of final image '" +test.final_image,"' , file not found");
+                  test.final_image = null
+            }
       
-            console.noteln("Autotest: ", test_name, "' completed normally");
+            let status = test.errors.length>0 ? "with "+test.errors.length+ "errors" : "successfuly";
+            console.noteln("Autotest: ", test_name, "' completed " + status);
       }
        catch (x) {
             console.criticalln("Autotest: '", test_name, " Exception in execute_test(): ",  x );
@@ -895,17 +946,23 @@ try
       {
             let test = tests[i];
             if (test.final_image != null) {
-                  console.noteln(test.test_name + ":" + test.final_image);
+                  let valid_view_id = Autotest.ensureValidNewViewId(test.test_name + "_" + File.extractName(test.final_image));
+                  console.noteln(test.test_name + ": '" + test.final_image + "' as '" + valid_view_id + "'");
                   // load final image
                   let window = openImageWindowFromFile(test.final_image);
-                  window.mainView.id = test.test_name + "_" + File.extractName(test.final_image);
+                  window.mainView.id = valid_view_id;
                   window.show();
+
                   // load reference image
                   let reference_image = File.extractDrive(test.final_image) + File.extractDirectory(test.final_image) +
-                                        "/reference_" + File.extractName(test.final_image) + ".xisf";
-                  window = openImageWindowFromFile(reference_image);
-                  window.mainView.id = test.test_name + "_" + File.extractName(reference_image);
-                  window.show();
+                                          "/reference_" + File.extractName(test.final_image) + ".xisf";
+                  if (File.exists(reference_image)) {
+                        window = openImageWindowFromFile(reference_image);
+                        window.mainView.id = Autotest.ensureValidViewId(test.test_name + "_" + File.extractName(reference_image));
+                        window.show();
+                  } else {
+                        console.noteln(test.test_name + ": No reference image "+ reference_image);
+                  }
             } else {
                   console.noteln(test.test_name + ": No final image");
             }
@@ -920,8 +977,7 @@ try
 }
 catch (x) {
       AutotestLog.restoreOriginalConsoleLog();
-      console.noteln("TestAutoIntegrate terminated");
-      console.writeln( "Autotest: Error: " + x );
+      console.noteln("TestAutoIntegrate failed, catched error: " + x);
 }
 
 

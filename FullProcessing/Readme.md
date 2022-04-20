@@ -22,6 +22,8 @@ additional configurations and actions.
 
 The list of test to execute must be in a file named `autotest_tests.txt`, with one test file in each line.
 The line may include comments indicated by a `#` at the beginning of the line.
+The location of the test can be followed by a test name separated from the file name by a comma. If not
+test name is specified, the name of the field is used as a test name.  Test names must be unique.
 
 All tests are run without human intervention, with a new AutoIntegrateDialog created for each test.
 A log file of all actions and results of the test script is created and saved in the result directory.
@@ -95,7 +97,11 @@ proceed to the next command after `execute`.
 
     # List of tests files, absolute or relative to the path of this file.
 
-    01-BasicMonochromeCrop_control.json
+    01-BasicMonochromeCrop_control_no_continue.json
+    01-BasicMonochromeCrop_control_continue_only.json
+    # The following test is an example of specifying a test name
+    01-BasicMonochromeCrop_control_with_continue.json,TestRunAndContinue
+
     02-BasicLRGBcrop.json
 ```
 

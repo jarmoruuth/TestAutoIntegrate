@@ -3,7 +3,9 @@
 # List of tests files, absolute or relative to the path of this file.
 
 01-BasicMonochromeCrop_control_no_continue.json
-01-BasicMonochromeCrop_control_with_continue.json
 01-BasicMonochromeCrop_control_continue_only.json
+# The following test is an example of specifying a test name
+01-BasicMonochromeCrop_control_with_continue.json,TestRunAndContinue
+
 02-BasicLRGBcrop.json
 
