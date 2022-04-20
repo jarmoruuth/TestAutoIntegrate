@@ -22,22 +22,34 @@ var use_persistent_module_settings = false;  // do not read defaults from persis
 
 // Automatic configuration of directories relative to the location of the script file.
 
-// The directory containing the test xisf files (LowRejectionMap_ALL)
+// The directory of the script file, used as a default base directory for other directories
 let autotest_script_path = ( #__FILE__ );        // Absolute path of the current script file
+// by construction, autotest_script_directory always ends with a /
 let autotest_script_directory = autotest_script_path.substring(0,autotest_script_path.lastIndexOf('/')+1);
+
 
 // *********************************************************************************************
 // *** User overridable parameters
 // *********************************************************************************************
-// the directoy containing json files of the tests
-// They must be in the format AutoSetup.json but named after the test
-var autotest_tests_directory = autotest_script_directory + "tests/";
-//var autotest_tests_directory = autotest_script_directory;
-//var autotest_tests_directory = "D:/AI_TESTS/"
 
+// The base directory for the test definitions and the name of the test definition file.
+// The default is setup so that the tests in the
+// the project TestAutoIntegrate can be run without special settings.
+
+// The directory containing the name of the file autotest_tests.txt
+var autotest_tests_directory = autotest_script_directory + "tests/";
+var autotest_test_file_name = "autotest_tests.txt"
+var autotest_test_file_path = autotest_tests_directory + autotest_test_file_name;
+// The default directory of the test files specified in autotest_tests.txt
+var autotest_default_tests_directory = autotest_tests_directory;
+
+
+// Directory for the location of reference images, set to null to not use
+var autotest_reference_root_directory = autotest_script_directory+"references/"
 
 
 // Directory where to put the results, it is recommended to clean it before execution
+// It will include the logfile of the test
 // ** A directory in the source path, which must be in .gitignore. Make sure that it has enough free space
 var autotest_result_directory = autotest_script_directory+"results/";
 // ** The system directory is always present but may not be convenient and overload the system drive
@@ -45,7 +57,7 @@ var autotest_result_directory = autotest_script_directory+"results/";
 // ** Use some specifc location, there should be nothing (except test results) in that directory
 // var autotest_result_directory = "D:/AutoIntergrateTestResults";
 
-// Where the autotest log file will be saved.  by default it will be created in the autotest_result_directory
+// Where the autotest log file will be saved.  by default (null) it will be created in the autotest_result_directory
 var autotest_logfile_path = null;
 
 // *********************************************************************************************
@@ -251,10 +263,18 @@ let Autotest = (function() {
             this.test_name = test_name;
             this.test_directory = test_directory; // Root of test files
             this.command_list = command_list;  // Object or null
-            this.final_image = null;
 
             // --- Test execution history and results
-            // errors, an empty array if executed successfuly
+            // The image produced
+            this.final_image = null;
+            // The id of the produced image and reference image after final reload
+            this.final_image_id = null;
+            this.reference_image_id = null;
+
+            // The windows created by the test
+            this.createdWindows = [];
+      
+            // the errors, an empty array if executed successfuly
             this.errors = [];
 
             this.addError = function(msg)
@@ -341,37 +361,41 @@ let Autotest = (function() {
       }
  
 
-      // function loadTestList fin the list of text to execute
-      let loadTestList = function(test_list_path)
+      // function loadTestList loadthe list of text to execute from the file test_file_path,
+      // default_tests_directory is used as default directory for relative test path
+      let loadTestList = function(test_list_file_path,default_tests_directory)
       {
-            let test_paths = []
-            let root_path = test_list_path.substring(0,test_list_path.lastIndexOf('/')+1);
-            if (! File.exists(test_list_path))
+            // An array of comman separated strings, each string first element is the path and second element is 
+            // an optional name.  TODO This could be an array of 2 elements array
+            let test_paths_and_names = []
+             if (! File.exists(test_list_file_path))
             {
-                  throw Error("File '" + test_list_path + "' does not exist");
+                  throw Error("File '" + test_list_file_path + "' does not exist");
             }
-            let lines = File.readLines(test_list_path);
-            //console.writeln("Autotest: Loaded " + lines.length + " lines from '" + test_list_path +"'");
+            let lines = File.readLines(test_list_file_path);
+            //console.writeln("Autotest: Loaded " + lines.length + " lines from '" + test_list_file_path +"'");
             for (let i=0; i<lines.length; i++) {
                   let line = lines[i].trim();
                   if (line.length == 0) continue; // skip empty line
                   if (line.startsWith('#')) continue; // skip comment
                   let line_split = line.split(",");
-                  let test_path = resolveRelativePath(line_split[0], root_path);
-                  console.writeln("DEBUG: Test full path " +File.fullPath(test_path));
+                  let test_location = line_split[0];
+                  let test_path = File.fullPath(resolveRelativePath(test_location, default_tests_directory));
+                  console.writeln("DEBUG: Test full path " + test_path);
                   if (File.exists(test_path)) {
+                        // parameters are added after the name of the path
                         for (let i = 1; i < line_split.length; i++) {
                               test_path = test_path + "," + line_split[i];
                         }
-                        test_paths[test_paths.length] = test_path;
+                        test_paths_and_names[test_paths_and_names.length] = test_path;
                   } else if (File.directoryExists(test_path)) {
                         throw Error("Test in directory not supported '" + test_path + "', line " + (i+1));
                   } else {
                         throw Error("Test file '" + test_path + "' does not exsist");
                   }
             }
-            console.writeln("" + test_paths.length + " tests found");
-            return test_paths;
+            console.writeln("" + test_paths_and_names.length + " tests found");
+            return test_paths_and_names;
       }
 
       // ------------------------------------------------------------
@@ -431,33 +455,39 @@ let Autotest = (function() {
       // ------------------------------------------------------------
 
       // Parse the known log for errors, add them to test error
-      let parse_log_for_errors = function(test, resultDirectory)
+      let parse_log_for_errors = function(test)
       {
             // get logFilePath from the script
             let logFilePath = run_results.processing_steps_file;
-            if (run_results.fatal_error != '') {
+             if (run_results.fatal_error != '') {
                   // we have a fatal error, save it
                   test.addError("fatal - " + run_results.fatal_error);
             }
-            if (! File.exists(logFilePath))
+            if (logFilePath == null || logFilePath == '')
+            { 
+                  test.addError("Log file not defined, likely not created");
+            }
+            else if (! File.exists(logFilePath))
             {
                   test.addError("Log file '" + logFilePath + "' not found");
             }
             else 
             {
-                  let log_lines = File.readLines( logFilePath);
+                   let log_lines = File.readLines( logFilePath);
                   for (let i in log_lines)
                   {
                         let line = log_lines[i];
                         let errorIndex = line.indexOf("Error: ");
                         if (errorIndex>0)
-                        {                              
+                        {                     
+                              errorIndex += 7 ; // Skip 'Error:'         
                               if (line.indexOf("FileDataCache::Load(): Corrupted cache data"))
                               {
-                                    test.addError("log - " + line.substring(errorIndex) + "\n     To clear the cache, open ImageIntergration, select the tool (at bottom right) and clean both caches");
+                                    test.addError("Error in log: " + line.substring(errorIndex) + 
+                                    "\nTo clear the cache, open ImageIntergration, select the tool (at bottom right) and clean both caches");
                               }
                               else{
-                                    test.addError("log - " + line.substring(errorIndex));
+                                    test.addError("Error in log: " + line.substring(errorIndex));
                               }
                         }
                   }
@@ -570,13 +600,21 @@ let autotest_control_commands = {
             let name = command[1];
             let path = command[2];
             let resolved_path = Autotest.resolveRelativePath(path, autotest_result_directory);
-            try {
-                  let window = ImageWindow.open(resolved_path)[0];
-                  window.mainView.id = Autotest.ensureValidViewId(name);
-                  window.show();
-            } catch (x) {
-                  console.warningln("Autotest: Cannot load image '", name, "' from '", resolved_path, "' error: " + x);
-                  test.addError(" Cannot load image '", name, "' from '", resolved_path, "' error: " + x);
+            if (File.exists(resolved_path))
+            {
+                  try {
+                        let window = ImageWindow.open(resolved_path)[0];
+                        window.mainView.id = Autotest.ensureValidViewId(name);
+                        window.show();
+                  } catch (x) {
+                        console.warningln("Autotest: Cannot load image '", name, "' from '", resolved_path, "' error: " + x);
+                        test.addError(" Cannot load image '", name, "' from '", resolved_path, "' error: " + x);
+                  }
+            }
+            else 
+            {
+                  console.warningln("Autotest: Cannot load image '", name, "' from '", resolved_path, "' no such file");
+                  test.addError(" Cannot load image '" + name + "' from '" + resolved_path + "' no such file");
             }
       },
       'saveImage': function(test, command) {
@@ -585,17 +623,23 @@ let autotest_control_commands = {
             let resolved_path = Autotest.resolveRelativePath(path, autotest_result_directory);        
             try {
                   let window = ImageWindow.windowById(name);
-                  // Save image. No format options, no warning messages, 
-                  // no strict mode, no overwrite checks.
-                  let success = window.saveAs(resolved_path, false, false, false, false);
-                  if (!success)
-                  {
-                        console.warningln("Autotest: image '", name, "' not saved to '", resolved_path);
-                        test.addError(" Cannot image '", name, "' not saved to '", resolved_path);      
+                  // console.writeln("DEBUG: name ", name, " window ", window)
+                  if (window.isNull) {
+                        console.warningln("Autotest: No window for image '", name, "', not saved to '", resolved_path);
+                        test.addError("No window for image '" + name + "', not saved to '" + resolved_path);      
+                  } else {
+                        // Save image. No format options, no warning messages, 
+                        // no strict mode, no overwrite checks.
+                        let success = window.saveAs(resolved_path, false, false, false, false);
+                        if (!success)
+                        {
+                              console.warningln("Autotest: image '", name, "' not saved to '", resolved_path);
+                              test.addError(" Image '" + name + "' not saved to '"+ resolved_path);      
+                        }
                   }
             } catch (x) {
                   console.warningln("Autotest: Cannot save image '", name, "' to '", resolved_path, "' error: " + x);
-                  test.addError(" Cannot save image '", name, "' to '", resolved_path, "' error: " + x);
+                  test.addError(" Cannot save image '"+  name + "' to '" + resolved_path + "' error: " + x);
             }
 
       },
@@ -739,7 +783,9 @@ function AutoIntegrateTestDialog(test)
                   console.noteln("Autotest: Executing 'Run' on test data");
                   autoIntegrateDialog.run_Button.onClick();
                   AutotestLog.ensureAutotestLog();
-                  Autotest.compareReferenceState();
+                  let [createdWindows, deletedWindows] = Autotest.compareReferenceState();
+                  test.createdWindows = createdWindows;
+                  
             },
 
             // Execute the 'continue' command
@@ -753,7 +799,8 @@ function AutoIntegrateTestDialog(test)
                   console.noteln("Autotest: Executing autoContinue on test data");
                   autoIntegrateDialog.autoContinueButton.onClick();
                   AutotestLog.ensureAutotestLog();
-                  Autotest.compareReferenceState();
+                  let [createdWindows, deletedWindows] = Autotest.compareReferenceState();
+                  test.createdWindows = createdWindows;
             },
 
             // execute the exit dialog command, this closes the dialog and exit
@@ -769,19 +816,27 @@ function AutoIntegrateTestDialog(test)
       this.autotest_execute_dialog_command = function(test, command)
       {
             let command_name = command[0];
-            // First check commands specific to dialog
-            if (command_name in this.dialog_commands) {
-                  let command_function = this.dialog_commands[command_name];
-                  command_function(this, test, command);
 
-            // Then commands generic
-            } else if (command_name in autotest_control_commands) {
-                  let command_function = autotest_control_commands[command_name];
-                  command_function(test, command);
-            } else {
-                  // TODO Log to error, option to exit
-                  console.warningln("Autotest: Unknown dialog or control command '", command_name, "' ignored");         
+            try {
+                  // First check commands specific to dialog
+                  if (command_name in this.dialog_commands) {
+                        let command_function = this.dialog_commands[command_name];
+                        command_function(this, test, command);
+
+                  // Then commands generic
+                  } else if (command_name in autotest_control_commands) {
+                        let command_function = autotest_control_commands[command_name];
+                        command_function(test, command);
+                  } else {
+                        // TODO Log to error, option to exit
+                        console.warningln("Autotest: Unknown dialog or control command '", command_name, "' ignored");         
+                  }
+            } catch (x)
+            {
+                  console.criticalln("Autotest: Unhandled exception catched during dialog command '" + JSON.stringify(command) + " " + x);
+                  test.addError("Unhandled exception during dialog command '" + JSON.stringify(command) + " " + x);
             }
+      
       }
 
 }
@@ -794,17 +849,25 @@ AutoIntegrateTestDialog.prototype = new AutoIntegrateDialog();
 function autotest_execute_launch_command(dialog, test, command)
 {
       let command_name = command[0];
-      if (command_name in autotest_control_commands) {
-            let command_function = autotest_control_commands[command_name];
-            command_function(test, command);
-      } else if (command_name in autotest_launch_commands) {
-            let command_function = autotest_launch_commands[command_name];
-            command_function(dialog, test, command);
-      } else {
-            // TODO Log to error, option to exit
-            console.warningln("Autotest: Unknown launch or control command '", command_name, "' ignored");         
+      try {
+            if (command_name in autotest_control_commands) {
+                  let command_function = autotest_control_commands[command_name];
+                  command_function(test, command);
+            } else if (command_name in autotest_launch_commands) {
+                  let command_function = autotest_launch_commands[command_name];
+                  command_function(dialog, test, command);
+            } else {
+                  // TODO Log to error, option to exit
+                  console.warningln("Autotest: Unknown launch or control command '", command_name, "' ignored");         
+            }
+      
+      } catch (x)
+      {
+            console.criticalln("Autotest: Unhandled exception catched during launch command '" + JSON.stringify(command) + " " + x);
+            test.addError("Unhandled exception during launch command '" + JSON.stringify(command) + " " + x);
       }
 }
+
 
 // Execute a single test sequence
 function execute_test(test, resultRootDirectory)
@@ -813,9 +876,12 @@ function execute_test(test, resultRootDirectory)
       let autosetup_file_path = test.autosetup_path;
       let command_list = test.command_list;
 
+      // *********************
       // not sure what resultDirectory should be
-      //let resultDirectory = ensurePathEndSlash((resultRootDirectory+test_name).trim());
-      let resultDirectory = test.test_directory;
+      let resultDirectory = ensurePathEndSlash((resultRootDirectory+test_name).trim());
+      //let resultDirectory = test.test_directory;
+      // ********************
+
       console.noteln("===================================================");
       console.noteln("Autotest: Executing test '", test_name, "' with results in ", resultDirectory);
       console.noteln("Autotest: Commands to execute: ")
@@ -826,10 +892,12 @@ function execute_test(test, resultRootDirectory)
 
       try {
 
+            let startTime = new Date();
+            // Output will be in that directory, I assume
             outputRootDir = ensurePathEndSlash(resultDirectory);
 
             let dialog = new AutoIntegrateTestDialog(test);
-
+ 
             for (let command_index in command_list)
             {
                   let command = command_list[command_index];
@@ -842,21 +910,36 @@ function execute_test(test, resultRootDirectory)
             // get final image from the script
             test.final_image = run_results.final_image_file;
 
-            Autotest.parse_log_for_errors(test, resultDirectory);
+            Autotest.parse_log_for_errors(test);
 
-            // Check that the final image  exists, otherwise this is an error in the test
-            if (!File.exists(test.final_image)) 
-            {
-                  test.addError("Expected creation of final image '" +test.final_image,"' , file not found");
-                  test.final_image = null
+
+            if (test.final_image != null && test.final_image != '') { // empty string in some cases of errors
+
+                  // Check that the final image  exists, otherwise this is an error in the test
+                  if (File.exists(test.final_image)) 
+                  {
+                        // Check date time of final image is after launch of test
+                        let fileInfo = new FileInfo(test.final_image);
+                        let fileTime = fileInfo.lastModified;
+                        if (fileTime < startTime) 
+                        {
+                              test.addError("Expected new final image '" + test.final_image + "' , file created at " + fileTime +
+                              " before start of test at " + startTime);
+                        }
+
+                  } else 
+                  {
+                        test.addError("Expected creation of final image '" + test.final_image + "' , file not found");
+                        test.final_image = null
+                  }
             }
       
-            let status = test.errors.length>0 ? "with "+test.errors.length+ "errors" : "successfuly";
+            let status = test.errors.length>0 ? "with " + test.errors.length + "errors" : "successfuly";
             console.noteln("Autotest: ", test_name, "' completed " + status);
       }
        catch (x) {
-            console.criticalln("Autotest: '", test_name, " Exception in execute_test(): ",  x );
-            test.addError("Exception in execute_test(): " + x);
+            console.criticalln("Autotest: exception detected during execute_test('", test_name, "') : ",  x );
+            test.addError("Exception detected during execute_test(): " + x);
       }
 }
 
@@ -881,7 +964,7 @@ try
       }
 
       // Load all test definitions
-      let test_list = Autotest.loadTestList(autotest_tests_directory+"autotest_tests.txt")
+      let test_list = Autotest.loadTestList(autotest_test_file_path,autotest_default_tests_directory)
       let tests = []
       for (let i=0; i<test_list.length; i++)
       {
@@ -919,47 +1002,37 @@ try
             execute_test(test, autotest_result_directory);
       }
 
-      console.noteln("-----------------------------------------------------");
-      console.noteln("Autotest: Test results in directory ", autotest_result_directory);
-      for (let i =0; i<tests.length; i++)  
-      {
-            let test = tests[i];
-            let test_name = test.test_name;
-            let errors =  test.errors;
-            if (errors.length == 0)
-            {
-                  console.noteln("    ",test_name, " ok");
-            } else {
-                  console.noteln("    ",test_name, ": errors");
-                  for (let error_index in errors)
-                  {
-                        console.noteln("         ", errors[error_index]);
-                  }
-            }
-      }
-
       // Load final images for a visual review
       console.noteln("-----------------------------------------------------");
       console.noteln("Autotest: Load final images for review");
       Autotest.forceCloseAll();
+      console.noteln("Autotest: Load ...");
       for (let i=0; i<tests.length; i++)  
       {
             let test = tests[i];
-            if (test.final_image != null) {
+            if (test.final_image != null && test.final_image != '') { // empty string in some cases of errors
                   let valid_view_id = Autotest.ensureValidNewViewId(test.test_name + "_" + File.extractName(test.final_image));
-                  console.noteln(test.test_name + ": '" + test.final_image + "' as '" + valid_view_id + "'");
+                  console.noteln(" " + test.test_name + ": '" + test.final_image + "' as '" + valid_view_id + "'");
                   // load final image
                   let window = openImageWindowFromFile(test.final_image);
                   window.mainView.id = valid_view_id;
                   window.show();
+                  test.final_image_id = window.mainView.id;
 
-                  // load reference image
+                  // load reference image - First look in target directory, then in the 'eference' directory if it is specified
                   let reference_image = File.extractDrive(test.final_image) + File.extractDirectory(test.final_image) +
                                           "/reference_" + File.extractName(test.final_image) + ".xisf";
+                  //console.writeln("DEBUG: output reference_image ", reference_image, File.exists(reference_image) ? " exists":" missing");
+                  if (! File.exists(reference_image) && autotest_reference_root_directory != null) {
+                        reference_image = autotest_reference_root_directory + test.test_name + 
+                                          "/reference_" + File.extractName(test.final_image) + ".xisf";
+                        //console.writeln("DEBUG: outside reference_image ", reference_image, File.exists(reference_image) ? " exists":" missing");
+                                    }
                   if (File.exists(reference_image)) {
                         window = openImageWindowFromFile(reference_image);
                         window.mainView.id = Autotest.ensureValidViewId(test.test_name + "_" + File.extractName(reference_image));
                         window.show();
+                        test.reference_image_id = window.mainView.id;
                   } else {
                         console.noteln(test.test_name + ": No reference image "+ reference_image);
                   }
@@ -967,6 +1040,42 @@ try
                   console.noteln(test.test_name + ": No final image");
             }
       }
+      
+      console.noteln("-----------------------------------------------------");
+      console.noteln("Autotest: Test results in directory ", autotest_result_directory);
+      for (let i =0; i<tests.length; i++)  
+      {
+            let test = tests[i];
+            let test_name = test.test_name;
+            let errors =  test.errors;
+            let result_status = errors.length>0 ? "in error" : "successfuly"
+            console.noteln("    ",test_name, " terminated ", result_status);
+            if (test.final_image_id != null)
+            {
+                  console.noteln("         Final image loaded as '", test.final_image_id, "'");
+            }
+            if (test.reference_image_id != null)
+            {
+                  console.noteln("         Reference image loaded as '", test.reference_image_id, "'");
+            }
+            if (errors.length > 0)
+            {
+                  console.noteln("    ", errors.length + " errors:");
+                  for (let error_index in errors)
+                  {
+                        // Properly align a multi line error text
+                        let error_text = errors[error_index];
+                        let error_lines = error_text.split('\n');
+                        for (let j=0; j<error_lines.length; j++)
+                        {
+                              console.warningln("         ", error_lines[j].trim());
+                        }
+                  }
+            }
+            console.noteln("    "+ test.createdWindows.length + " windows created: " + test.createdWindows.join(', '))
+            console.writeln();
+      }
+
 
       AutotestLog.saveAutotestLog();
       // null in case of error writing
