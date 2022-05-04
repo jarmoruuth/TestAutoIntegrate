@@ -1,4 +1,4 @@
-// "use strict"; // Requires adding a 'var' and removing a 'owth' in AutoIntegrate.js
+"use strict"; // Requires adding a 'var' and removing a 'owth' in AutoIntegrate.js
 
 // TestFindBindingBoxForCrop
 
