@@ -481,10 +481,10 @@ let Autotest = (function() {
                         if (errorIndex>0)
                         {                     
                               errorIndex += 7 ; // Skip 'Error:'         
-                              if (line.indexOf("FileDataCache::Load(): Corrupted cache data"))
+                              if (line.indexOf("FileDataCache::Load(): Corrupted cache data")>=0)
                               {
                                     test.addError("Error in log: " + line.substring(errorIndex) + 
-                                    "\nTo clear the cache, open ImageIntergration, select the tool (at bottom right) and clean both caches");
+                                    "\nTo clear the cache, open ImageIntegration, select the tool (at bottom right) and clean both caches");
                               }
                               else{
                                     test.addError("Error in log: " + line.substring(errorIndex));
