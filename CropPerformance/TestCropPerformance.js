@@ -28,7 +28,8 @@ var get_process_defaults = false;
 // The directory containing the test xisf files (LowRejectionMap_ALL)
 let autotest_script_path = ( #__FILE__ );        // Absolute path of the current script file
 let autotest_script_directory = autotest_script_path.substring(0,autotest_script_path.lastIndexOf('/')+1);
-//let autotest_test_rejection_maps_directory = autotest_script_directory + "TestRejectionMaps";
+var autotest_test_file_name = "autotest_perf_files.txt"
+var autotest_test_file_path = autotest_script_directory + autotest_test_file_name;
 
 // There is no result directory, results are on the screen
 
@@ -57,32 +58,62 @@ function autotest_logheader()
 }
 
  
-function autotest_load_registered_file_paths(path_pattern, recursive)
+function autotest_load_registered_file_paths(autotest_test_file_path)
 {
-      console.noteln("Searching " + (recursive ? "recursively" : "") + " file pattern '" + path_pattern + "'");
-      let image_files = searchDirectory(path_pattern, recursive);
-      console.noteln("Found " + image_files.length + " files, assume registered images of the same size");
+      // Find list of files for the test
+      console.noteln("Loading list of images from ", autotest_test_file_path);
       let image_file_descriptors = [];
-      for (let i in image_files)
+      let file_list_lines = File.readLines(autotest_test_file_path);
+      for (let i in file_list_lines)
       {
-         image_file_descriptors[image_file_descriptors.length] = [true, image_files[i], "", ""]; // [ enabled, path, drizzlePath, localNormalizationDataPath ]
+            let line = file_list_lines[i];
+            if (line.length ==0 || line.startsWith('#'))
+            {
+                  continue; // ignore
+            }
+            let line_elements = line.split(',');
+            let path_pattern = line_elements[0];
+            let recursive = false;
+            if (line_elements.length>1)
+            {
+                  recursive = line_elements[1].toBoolean();
+            }
+            if (path_pattern.contains('*'))
+            {
+                  console.noteln("Searching " + (recursive ? "recursively" : "") + " file pattern '" + path_pattern + "'");
+                  let image_files = searchDirectory(path_pattern,recursive);  
+                  console.noteln("Adding " + image_files.length + " files, assume registered images of the same size");
+                  for (let i in image_files)
+                  {
+                     image_file_descriptors[image_file_descriptors.length] = [true, image_files[i], "", ""]; // [ enabled, path, drizzlePath, localNormalizationDataPath ]
+                  }
+
+            } else {
+                  image_file_descriptors[image_file_descriptors.length] = [true, path_pattern, "", ""]; // [ enabled, path, drizzlePath, localNormalizationDataPath ]
+                  console.noteln("Adding '" + path_pattern + "', assume registered images of the same size");
+            }
       }
+      console.noteln(file_list_lines.length, " line(s) read, ", image_file_descriptors.length,  ", images in integration list");
 
       return image_file_descriptors;
 }
 
 // Execute the test on al ltest files
-function autotest_execute()
-
+function autotest_execute(images)
 {
-      let images = autotest_load_registered_file_paths("D:/202004-T09-IC2872/wbpp/registered/Light_BIN-1_EXPOSURE-180.00s_FILTER-Blue_Mono/*.xisf",true);
-      //console.writeln("Found " + images.length + " images");
-
       let rejection_window = findWindow(rejection_window_name);
       if (rejection_window != null)
       {
             console.noteln("Closing previous window ", rejection_window_name);
             rejection_window.forceClose();
+      }
+
+      // For debug
+      if (debug){
+            console.writeln("Files integrated:");
+            for (let i in images) {
+                  console.writeln(i, ": ", images[i]);
+            }
       }
 
 
@@ -111,7 +142,7 @@ function autotest_execute()
 
       console.noteln("===================================================");
       console.noteln("TestCropPerformance terminated");
-      console.noteln("   integration execution time "+(integration_time-start_time)/1000+" sec");
+      console.noteln("   integration execution time "+(integration_time-start_time)/1000+" sec for " + images.length + " images");
       console.noteln("   crop calculation execution time "+(end_time-integration_time)/1000+" sec");
       console.noteln("   total execution time "+(end_time-start_time)/1000+" sec");
       console.noteln("For proper results, clean the Integration caches and run twice to see cache effect");
@@ -119,4 +150,12 @@ function autotest_execute()
 
 autotest_logheader();
 
-autotest_execute();
+if (! File.exists(autotest_test_file_path))
+{
+      console.critical("Configuration file '"+autotest_test_file_path+"' not found");
+      console.critical("Create one based on the file autotest_perf_files.EXAMPLE.txt");
+}
+else {
+      let image_files = autotest_load_registered_file_paths(autotest_test_file_path);
+      autotest_execute(image_files);
+}
