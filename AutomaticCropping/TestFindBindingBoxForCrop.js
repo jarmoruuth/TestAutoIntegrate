@@ -1,4 +1,4 @@
-// "use strict"; // Requires adding a 'var' and removing a 'owth' in AutoIntegrate.js
+"use strict"; // Requires adding a 'var' and removing a 'owth' in AutoIntegrate.js
 
 // TestFindBindingBoxForCrop
 
@@ -26,7 +26,7 @@ var get_process_defaults = false;
 
 // Remove the preview ReferenceCrop (if present) after test to better show the generated
 // 'crop' preview
-autotest_do_delete_referencecrop_after_check = false; 
+let autotest_do_delete_referencecrop_after_check = false; 
 // -----------------------------------------------------------------------------------------
 
 // Automatic configuration of directories relative to the location of the script file.
