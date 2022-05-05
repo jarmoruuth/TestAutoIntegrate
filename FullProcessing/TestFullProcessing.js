@@ -1,4 +1,4 @@
-//"use strict"; 
+"use strict"; 
 
 // TestFullProcessing.js
 
@@ -481,10 +481,10 @@ let Autotest = (function() {
                         if (errorIndex>0)
                         {                     
                               errorIndex += 7 ; // Skip 'Error:'         
-                              if (line.indexOf("FileDataCache::Load(): Corrupted cache data"))
+                              if (line.indexOf("FileDataCache::Load(): Corrupted cache data")>=0)
                               {
                                     test.addError("Error in log: " + line.substring(errorIndex) + 
-                                    "\nTo clear the cache, open ImageIntergration, select the tool (at bottom right) and clean both caches");
+                                    "\nTo clear the cache, open ImageIntegration, select the tool (at bottom right) and clean both caches");
                               }
                               else{
                                     test.addError("Error in log: " + line.substring(errorIndex));
@@ -994,6 +994,9 @@ try
 
  
       // Execute tests
+      // Measure execution from start of testing
+      let start_time = Date.now();
+ 
       for (let i =0; i<tests.length; i++)  
       {
             // set defaults before each test run
@@ -1001,6 +1004,8 @@ try
             let test = tests[i];
             execute_test(test, autotest_result_directory);
       }
+      // To end of testing
+      let end_time = Date.now();
 
       // Load final images for a visual review
       console.noteln("-----------------------------------------------------");
@@ -1080,9 +1085,9 @@ try
       AutotestLog.saveAutotestLog();
       // null in case of error writing
       if (autotest_logfile_path != null) console.noteln("Autotest: logfile written to " + autotest_logfile_path);
-
-      console.noteln("TestAutoIntegrate terminated");
- 
+          
+      console.noteln("TestAutoIntegrate terminated, tests execution time "+(end_time-start_time)/1000+" sec");
+          
 }
 catch (x) {
       AutotestLog.restoreOriginalConsoleLog();
