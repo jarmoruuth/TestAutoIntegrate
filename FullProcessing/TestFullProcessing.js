@@ -4,13 +4,18 @@
 
 // -----------------------------------------------------------------------------------------
 // Parameterize the included main script, overloading
-// the debug parameters and disabling main()
+// the ai_debug parameters and disabling main()
 
 #define TEST_AUTO_INTEGRATE
 
-var debug = true;
-var get_process_defaults = false;
-var use_persistent_module_settings = false;  // do not read defaults from persistent module settings
+var ai_debug = true;
+var ai_get_process_defaults = false;
+var ai_use_persistent_module_settings = false;  // do not read defaults from persistent module settings
+
+let autointegrate = null;     // autointegrate module
+let ai_par = null;               // autointegrate parameters
+let ai_ppar = null;              // autointegrate persistent parameters
+let ai_run_results = null;
 
 // By default assume that repository is a sibling of AutoIntegrate
 // ************* Adapt if needed ********************
@@ -38,6 +43,7 @@ let autotest_script_directory = autotest_script_path.substring(0,autotest_script
 
 // The directory containing the name of the file autotest_tests.txt
 var autotest_tests_directory = autotest_script_directory + "tests/";
+//autotest_tests_directory = autotest_script_directory + "/"; // JR
 var autotest_test_file_name = "autotest_tests.txt"
 var autotest_test_file_path = autotest_tests_directory + autotest_test_file_name;
 // The default directory of the test files specified in autotest_tests.txt
@@ -61,6 +67,38 @@ var autotest_result_directory = autotest_script_directory+"results/";
 var autotest_logfile_path = null;
 
 // *********************************************************************************************
+
+// If path is relative and not absolute, we append it to the 
+// path of the image file
+function pathIsRelative(p)
+{
+      var dir = File.extractDirectory(p);
+      if (dir == null || dir == '') {
+            return true;
+      }
+      switch (dir[0]) {
+            case '/':
+            case '\\':
+                  return false;
+            default:
+                  return true;
+      }
+}
+
+function ensurePathEndSlash(dir)
+{
+      if (dir.length > 0) {
+            switch (dir[dir.length-1]) {
+                  case '/':
+                  case '\\':
+                  case ':':
+                        return dir;
+                  default:
+                        return dir + '/';
+            }
+      }
+      return dir;
+}
 
 // ----------------------------------------------------------------------------------------
 // autottest log control  namespace
@@ -198,9 +236,9 @@ let AutotestLog = (function() {
 
 function autotest_logheader()
 {
-      pixinsight_version_str = CoreApplication.versionMajor + '.' + CoreApplication.versionMinor + '.' + 
+      let pixinsight_version_str = CoreApplication.versionMajor + '.' + CoreApplication.versionMinor + '.' + 
       CoreApplication.versionRelease + '-' + CoreApplication.versionRevision;
-      pixinsight_version_num = CoreApplication.versionMajor * 1e6 + 
+      let pixinsight_version_num = CoreApplication.versionMajor * 1e6 + 
             CoreApplication.versionMinor * 1e4 + 
             CoreApplication.versionRelease * 1e2 + 
             CoreApplication.versionRevision;
@@ -211,10 +249,9 @@ function autotest_logheader()
       console.noteln("Test data file directory ", autotest_tests_directory);
       console.noteln("Test work and result directory ", autotest_result_directory);
       console.noteln("Testing complete sequence of operations");
-      console.noteln("for AutoIntegrate " + autointegrate_version + ", PixInsight v" + pixinsight_version_str + ' (' + pixinsight_version_num + ')');
+      console.noteln("for AutoIntegrate " + autointegrate.get_autointegrate_version() + ", PixInsight v" + pixinsight_version_str + ' (' + pixinsight_version_num + ')');
       console.noteln("======================================================");
 }
-
 
 // Emulate the initialization done by main() in AutoIntegrate, must be called before creating 
 // or recreating) the AutoIntegrateTestDialog.
@@ -226,19 +263,7 @@ function autotest_initialize()
 
       console.noteln("Autotest: No module or icon setting is loaded in automatic mode, starting from defaults.");
 
-      setDefaultDirs();
-
-      // Initialize ppar to the default values they have when the script is started
-      ppar.win_prefix = '';
-      ppar.prefixArray = [];
-      ppar.userColumnCount = -1;    
-      ppar.lastDir = '';  
-
-      // Hopefully remove the prefixes of a previous run
-      fixAllWindowArrays(ppar.win_prefix);
-
-      // Reset the parameters to the default they would have when the program is loaded
-      setParameterDefaults();
+      autointegrate.test_initialize();
 
       // TODO All other global variables hould be reinitialiezd to their defauld values if AutoIntegrateTestDialog
       // is recreated.
@@ -458,10 +483,10 @@ let Autotest = (function() {
       let parse_log_for_errors = function(test)
       {
             // get logFilePath from the script
-            let logFilePath = run_results.processing_steps_file;
-             if (run_results.fatal_error != '') {
+            let logFilePath = ai_run_results.processing_steps_file;
+             if (ai_run_results.fatal_error != '') {
                   // we have a fatal error, save it
-                  test.addError("fatal - " + run_results.fatal_error);
+                  test.addError("fatal - " + ai_run_results.fatal_error);
             }
             if (logFilePath == null || logFilePath == '')
             { 
@@ -559,9 +584,9 @@ let autotest_control_commands = {
             let name = command[1];
             let value = command[2];
             console.noteln("Autotest: Set parameter ", name, " to ", value, " (", typeof value, ")");
-            if (par.hasOwnProperty(name))
+            if (ai_par.hasOwnProperty(name))
             {
-                  let param = par[name];
+                  let param = ai_par[name];
                   // TODO check type
                   param.val = value;
                   if (param.reset != undefined) {
@@ -578,19 +603,19 @@ let autotest_control_commands = {
       'setPrefix': function(test, command) {
             let prefix = command[1];
             console.noteln("Autotest: Set prefix to ", prefix);
-            ppar.win_prefix = prefix;
+            ai_ppar.win_prefix = prefix;
       },
 
       'setLastDir': function(test, command) {
             let lastDir = command[1];
             console.noteln("Autotest: Set lastDir to ", lastDir);
-            ppar.lastDir = lastDir;
+            ai_ppar.lastDir = lastDir;
       },
 
       'setOutputRootDir': function(test, command) {
             let outputDir = command[1];
             console.noteln("Autotest: Set outputRootDir to ", outputDir);
-            outputRootDir = ensurePathEndSlash(outputDir);
+            autointegrate.set_outputRootDir(ensurePathEndSlash(outputDir));
       },
       'forceCloseAll': function(test, command) {
                   Autotest.forceCloseAll();
@@ -684,7 +709,7 @@ let autotest_launch_commands = {
 // A subclass of AutoIntegrateDialog created for each test to execute the specific test file
 function AutoIntegrateTestDialog(test)
 {
-      this.__base__ = AutoIntegrateDialog;
+      this.__base__ = autointegrate.AutoIntegrateDialog;
       this.__base__();
       this.command_list = ["run"]; // Default command, updated at test creation
       this.current_test = test;
@@ -760,15 +785,7 @@ function AutoIntegrateTestDialog(test)
                   let autosetup_path = Autotest.resolveRelativePath(autosetup_file, test.test_directory);
                   console.noteln("Autotest: autosetup '",autosetup_file,"' for test '", test.test_name, '" path ', autosetup_file);
                   // AutoIntegrate parse the autosetup
-                  var pagearray = parseJsonFile(autosetup_path, false);
-
-                  for (var i = 0; i < pagearray.length; i++) {
-                        if (pagearray[i] != null) {
-                              addFilesToTreeBox(autoIntegrationDialog, i, pagearray[i]);
-                        }
-                  }
-                  updateInfoLabel(autoIntegrationDialog);
-
+                  autointegrate.test_autosetup(autosetup_path);
             },
 
             // Execute the 'run' command
@@ -782,6 +799,7 @@ function AutoIntegrateTestDialog(test)
                   // TODO note that the log must be explored
                   console.noteln("Autotest: Executing 'Run' on test data");
                   autoIntegrateDialog.run_Button.onClick();
+                  console.noteln("Autotest: script completed");
                   AutotestLog.ensureAutotestLog();
                   let [createdWindows, deletedWindows] = Autotest.compareReferenceState();
                   test.createdWindows = createdWindows;
@@ -841,11 +859,6 @@ function AutoIntegrateTestDialog(test)
 
 }
 
-AutoIntegrateTestDialog.prototype = new AutoIntegrateDialog();
-
-
-
-
 function autotest_execute_launch_command(dialog, test, command)
 {
       let command_name = command[0];
@@ -879,7 +892,7 @@ function execute_test(test, resultRootDirectory)
       // *********************
       // not sure what resultDirectory should be
       let resultDirectory = ensurePathEndSlash((resultRootDirectory+test_name).trim());
-      //let resultDirectory = test.test_directory;
+      //resultDirectory = test.test_directory; // JR
       // ********************
 
       console.noteln("===================================================");
@@ -894,9 +907,15 @@ function execute_test(test, resultRootDirectory)
 
             let startTime = new Date();
             // Output will be in that directory, I assume
-            outputRootDir = ensurePathEndSlash(resultDirectory);
+            autointegrate.set_outputRootDir(ensurePathEndSlash(resultDirectory));
 
             let dialog = new AutoIntegrateTestDialog(test);
+
+            autointegrate.set_dialog(dialog);
+
+            ai_par = autointegrate.test_getpar();
+            ai_ppar = autointegrate.test_getppar();
+            ai_run_results = autointegrate.get_run_results();
  
             for (let command_index in command_list)
             {
@@ -908,7 +927,7 @@ function execute_test(test, resultRootDirectory)
             }
 
             // get final image from the script
-            test.final_image = run_results.final_image_file;
+            test.final_image = ai_run_results.final_image_file;
 
             Autotest.parse_log_for_errors(test);
 
@@ -944,24 +963,26 @@ function execute_test(test, resultRootDirectory)
 }
 
 
-
+function newAutoIntegrate()
+{
+      autointegrate = null;
+      gc();
+      autointegrate = new AutoIntegrate();
+      AutoIntegrateTestDialog.prototype = new autointegrate.AutoIntegrateDialog();
+}
 
 // -----------------------------------------------------------------------------------------
 // The try block also open a local scope for let variables to avoid conflicts with the main script
 try
       {
 
+      newAutoIntegrate();
+
       AutotestLog.initializeAutotestLog();
 
       Autotest.forceCloseAll();
 
       autotest_logheader();
-
-      // Override function to disable persistent settings
-      savePersistentSettings = function()
-      {
-            console.noteln("Autotest: Persistent setting are not saved during Autotest")
-      }
 
       // Load all test definitions
       let test_list = Autotest.loadTestList(autotest_test_file_path,autotest_default_tests_directory)
@@ -1003,6 +1024,7 @@ try
             autotest_initialize();
             let test = tests[i];
             execute_test(test, autotest_result_directory);
+            newAutoIntegrate();
       }
       // To end of testing
       let end_time = Date.now();
@@ -1019,7 +1041,7 @@ try
                   let valid_view_id = Autotest.ensureValidNewViewId(test.test_name + "_" + File.extractName(test.final_image));
                   console.noteln(" " + test.test_name + ": '" + test.final_image + "' as '" + valid_view_id + "'");
                   // load final image
-                  let window = openImageWindowFromFile(test.final_image);
+                  let window = autointegrate.openImageWindowFromFile(test.final_image);
                   window.mainView.id = valid_view_id;
                   window.show();
                   test.final_image_id = window.mainView.id;
@@ -1034,7 +1056,7 @@ try
                         //console.writeln("DEBUG: outside reference_image ", reference_image, File.exists(reference_image) ? " exists":" missing");
                                     }
                   if (File.exists(reference_image)) {
-                        window = openImageWindowFromFile(reference_image);
+                        window = autointegrate.openImageWindowFromFile(reference_image);
                         window.mainView.id = Autotest.ensureValidViewId(test.test_name + "_" + File.extractName(reference_image));
                         window.show();
                         test.reference_image_id = window.mainView.id;

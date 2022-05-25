@@ -1,0 +1,12 @@
+D:/Telescopes/test/LRGB_Slooh/AutoSetupTestDefault.json, LRGB_Slooh
+D:/Telescopes/test/LRGB_Slooh/AutoSetupTestCrop.json, LRGB_Slooh_crop
+D:/Telescopes/test/Narrowband/AutoSetupTestDefault.json, Narrowband
+D:/Telescopes/test/Color/AutoSetupTestDefault.json, Color
+D:/Telescopes/test/Color/AutoSetupTestLNcrop.json, Color_LNcrop
+D:/Telescopes/test/LRGB/AutoSetupTestDefault.json, LRGB
+D:/Telescopes/test/LocalNormalization_Cone/AutoSetupTestLN.json, LocalNormalization_Cone
+D:/Telescopes/test/Calibrate/LRGB/AutoSetupTestDefault.json, Calibrate_LRGB
+D:/Telescopes/test/Calibrate/OSC/AutoSetupTestDefault.json, Calibrate_OSC
+D:/Telescopes/test/Calibrate/DSLR/AutoSetupTestDefault.json, Calibrate_DSLR
+D:/Telescopes/test/Calibrate/Jean-Marc_binning/AutoSetupTest.json, Calibrate_binning
+D:/Telescopes/test/ExtractChannels/Rene_test/AutoSetupTest.json, ExtractChannels
