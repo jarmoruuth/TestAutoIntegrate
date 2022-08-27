@@ -2,6 +2,8 @@
 
 // TestFullProcessing.js
 
+// run --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/FullProcessing/TestFullProcessing.js"
+
 // -----------------------------------------------------------------------------------------
 // Parameterize the included main script, overloading
 // the ai_debug parameters and disabling main()
@@ -43,8 +45,8 @@ let autotest_script_directory = autotest_script_path.substring(0,autotest_script
 
 // The directory containing the name of the file autotest_tests.txt
 var autotest_tests_directory = autotest_script_directory + "tests/";
-//autotest_tests_directory = autotest_script_directory + "/"; // JR
-var autotest_test_file_name = "autotest_tests.txt"
+autotest_tests_directory = autotest_script_directory + "/"; // JR
+var autotest_test_file_name = "autotest_tests.txt"          // JR
 var autotest_test_file_path = autotest_tests_directory + autotest_test_file_name;
 // The default directory of the test files specified in autotest_tests.txt
 var autotest_default_tests_directory = autotest_tests_directory;
@@ -892,7 +894,7 @@ function execute_test(test, resultRootDirectory)
       // *********************
       // not sure what resultDirectory should be
       let resultDirectory = ensurePathEndSlash((resultRootDirectory+test_name).trim());
-      //resultDirectory = test.test_directory; // JR
+      resultDirectory = test.test_directory; // JR
       // ********************
 
       console.noteln("===================================================");
@@ -965,8 +967,8 @@ function execute_test(test, resultRootDirectory)
 
 function newAutoIntegrate()
 {
-      autointegrate = null;
-      gc();
+      //autointegrate = null;
+      //gc();
       autointegrate = new AutoIntegrate();
       AutoIntegrateTestDialog.prototype = new autointegrate.AutoIntegrateDialog();
 }
