@@ -1,5 +1,3 @@
-"use strict"; 
-
 // TestFullProcessing.js
 
 // run --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/FullProcessing/TestFullProcessing.js"
@@ -10,18 +8,16 @@
 
 #define TEST_AUTO_INTEGRATE
 
-var ai_debug = true;
-var ai_get_process_defaults = false;
-var ai_use_persistent_module_settings = false;  // do not read defaults from persistent module settings
+// By default assume that repository is a sibling of AutoIntegrate
+// ************* Adapt if needed ********************
+#include "../../AutoIntegrate/AutoIntegrate.js"
 
-let autointegrate = null;     // autointegrate module
+let autointegrate = null;        // autointegrate module
+let autointegrate_gui = null;    // autointegrate GUI module
 let ai_par = null;               // autointegrate parameters
 let ai_ppar = null;              // autointegrate persistent parameters
 let ai_run_results = null;
 
-// By default assume that repository is a sibling of AutoIntegrate
-// ************* Adapt if needed ********************
-#include "../../AutoIntegrate/AutoIntegrate.js"
 
 // -----------------------------------------------------------------------------------------
 
@@ -61,9 +57,9 @@ var autotest_reference_root_directory = autotest_script_directory+"references/"
 // ** A directory in the source path, which must be in .gitignore. Make sure that it has enough free space
 var autotest_result_directory = autotest_script_directory+"results/";
 // ** The system directory is always present but may not be convenient and overload the system drive
-// var autotest_result_directory = ensurePathEndSlash(File.systemTempDirectory)+"AutoIntergrateTestResults/";
-// ** Use some specifc location, there should be nothing (except test results) in that directory
-// var autotest_result_directory = "D:/AutoIntergrateTestResults";
+// var autotest_result_directory = ensurePathEndSlash(File.systemTempDirectory)+"AutoIntegrateTestResults/";
+// ** Use some specific location, there should be nothing (except test results) in that directory
+// var autotest_result_directory = "D:/AutoIntegrateTestResults";
 
 // Where the autotest log file will be saved.  by default (null) it will be created in the autotest_result_directory
 var autotest_logfile_path = null;
@@ -103,10 +99,10 @@ function ensurePathEndSlash(dir)
 }
 
 // ----------------------------------------------------------------------------------------
-// autottest log control  namespace
+// autotest log control  namespace
 // Must be initialized early to save the original console methods.
-// This is somehwat tricky, it dynamically replace the methods beginLog and endLog
-// to trap the actions of AutoIntegrate (while not modifiying the original code),
+// This is somewhat tricky, it dynamically replace the methods beginLog and endLog
+// to trap the actions of AutoIntegrate (while not modifying the original code),
 // it save all logs that are not saved by AutoIntegrate to its own Autotest log file.
 let AutotestLog = (function() {
      
@@ -166,12 +162,12 @@ let AutotestLog = (function() {
             console.flush();
             let log = console.endLog();
 
-            // Enable autoexe clog
+            // Enable autoexec log
             logToAutotestLog = true;
             console.beginLog();
             console.noteln("=== Log switched to AutoTest log");
 
-            // return Autointegrate log to caller of console.begingLog
+            // return AutoIntegrate log to caller of console.beginLog
             return log;
       }
 
@@ -181,7 +177,7 @@ let AutotestLog = (function() {
       {
             if (! logToAutotestLog)
             {
-                  // close Autointegrate log
+                  // close AutoIntegrate log
                   // console.noteln("DEBUG: === ensureAutotestLog - Log will switch to AutoTest log");
                   restoreOriginalConsoleLog();
                   console.flush();
@@ -208,7 +204,7 @@ let AutotestLog = (function() {
             console.endLog = restoreAutotestLog;
       }
 
-      // Request  the next console.begingLog to switch from autotest log to AutoIntergrate log
+      // Request  the next console.begingLog to switch from autotest log to AutoIntegrate log
       let trapBeginLog = function()
       {
             console.beginLog = switchToAutoIntegrateLog;            
@@ -234,8 +230,6 @@ let AutotestLog = (function() {
 
 // ----------------------------------------------------------------------------------------
 
-
-
 function autotest_logheader()
 {
       let pixinsight_version_str = CoreApplication.versionMajor + '.' + CoreApplication.versionMinor + '.' + 
@@ -259,24 +253,20 @@ function autotest_logheader()
 // or recreating) the AutoIntegrateTestDialog.
 
 // Initialize various global variables using the functions of AutoIntegrate
-// Executed at the beginnig of each test.
+// Executed at the beginning of each test.
 function autotest_initialize()
 {
-
       console.noteln("Autotest: No module or icon setting is loaded in automatic mode, starting from defaults.");
 
       autointegrate.test_initialize();
 
-      // TODO All other global variables hould be reinitialiezd to their defauld values if AutoIntegrateTestDialog
+      // TODO All other global variables should be reinitialized to their default values if AutoIntegrateTestDialog
       // is recreated.
-
 }
 
-
 // ----------------------------------------------------------------------------------------
-// autottest namespace
+// autotest namespace
 let Autotest = (function() {
-
 
       // -----------------------------------------------------------------------------------
 
@@ -314,7 +304,6 @@ let Autotest = (function() {
             }
       }
 
-
       // -----------------------------------------------------------------------------------
 
       // Make path absolute relatively to rootPath if it is relative
@@ -337,7 +326,7 @@ let Autotest = (function() {
 
       // -----------------------------------------------------------------------------------
 
-      // funnction loadTest loads the definition of a single test
+      // function loadTest loads the definition of a single test
       let loadTest = function(test_path)
       {
             //console.writeln("DEBUG: loadTest loading '",test_path, "'", typeof test_path);
@@ -379,20 +368,17 @@ let Autotest = (function() {
                    command_list = [["forceCloseAll"],["execute", [["autosetup", test_path],["run"], ["exit"]]]];
             }
 
-
             //console.writeln("DEBUG: Loaded ",test_name, " ", is_control, "\n    path: ", autosetup_path, "\n    Commands: ", 
             //      JSON.stringify(command_list));
 
             return new Test(test_name, test_directory, command_list);
-   
       }
  
-
-      // function loadTestList loadthe list of text to execute from the file test_file_path,
+      // function loadTestList load the list of text to execute from the file test_file_path,
       // default_tests_directory is used as default directory for relative test path
       let loadTestList = function(test_list_file_path,default_tests_directory)
       {
-            // An array of comman separated strings, each string first element is the path and second element is 
+            // An array of comma separated strings, each string first element is the path and second element is 
             // an optional name.  TODO This could be an array of 2 elements array
             let test_paths_and_names = []
              if (! File.exists(test_list_file_path))
@@ -573,13 +559,10 @@ let Autotest = (function() {
       };
 }) ();
 
-
-
-
 // -----------------------------------------------------------------------------------------
 // These commands can be execute outside of the Dialog (and also in the dialog),
 // they change values that can be changed by settings and do commands
-// not processed by Autointegrate, like closing all windows.
+// not processed by AutoIntegrate, like closing all windows.
 let autotest_control_commands = {
                   
       'setPar': function(test, command) {
@@ -711,7 +694,7 @@ let autotest_launch_commands = {
 // A subclass of AutoIntegrateDialog created for each test to execute the specific test file
 function AutoIntegrateTestDialog(test)
 {
-      this.__base__ = autointegrate.AutoIntegrateDialog;
+      this.__base__ = autointegrate_gui.AutoIntegrateDialog;
       this.__base__();
       this.command_list = ["run"]; // Default command, updated at test creation
       this.current_test = test;
@@ -729,7 +712,7 @@ function AutoIntegrateTestDialog(test)
       };
 
 
-      // Called when the Dialo is executed and take over control
+      // Called when the Dialog is executed and take over control
       this.onExecute = function()
       {
             try {
@@ -740,7 +723,9 @@ function AutoIntegrateTestDialog(test)
                         let command = this.command_list[command_index];
                         let commandNmb = command_index+1;
                         console.noteln("Autotest: ", this.test_name, " command ",commandNmb, ": ", JSON.stringify(command));
+
                         this.autotest_execute_dialog_command(this.current_test, command);
+                        
                         //console.writeln("DEBUG: execution of command '", command[0], "' terminated");
                         // Nothing to do after exit at this level
                         if (this.exit_requested) {
@@ -778,7 +763,7 @@ function AutoIntegrateTestDialog(test)
             'closeAllPrefix': function(autoIntegrateDialog, test, command) {
                   console.noteln("Autotest: Closing all prefix windows");
                   // Not in 'this', for whatever reason
-                  closeAllPrefixButton.onClick();
+                  autointegrate_gui.closeAllPrefixButton.onClick();
             },
 
             'autosetup': function(autoIntegrationDialog, test, command)
@@ -856,9 +841,7 @@ function AutoIntegrateTestDialog(test)
                   console.criticalln("Autotest: Unhandled exception catched during dialog command '" + JSON.stringify(command) + " " + x);
                   test.addError("Unhandled exception during dialog command '" + JSON.stringify(command) + " " + x);
             }
-      
       }
-
 }
 
 function autotest_execute_launch_command(dialog, test, command)
@@ -888,7 +871,6 @@ function autotest_execute_launch_command(dialog, test, command)
 function execute_test(test, resultRootDirectory)
 {
       let test_name = test.test_name;
-      let autosetup_file_path = test.autosetup_path;
       let command_list = test.command_list;
 
       // *********************
@@ -933,7 +915,6 @@ function execute_test(test, resultRootDirectory)
 
             Autotest.parse_log_for_errors(test);
 
-
             if (test.final_image != null && test.final_image != '') { // empty string in some cases of errors
 
                   // Check that the final image  exists, otherwise this is an error in the test
@@ -947,7 +928,6 @@ function execute_test(test, resultRootDirectory)
                               test.addError("Expected new final image '" + test.final_image + "' , file created at " + fileTime +
                               " before start of test at " + startTime);
                         }
-
                   } else 
                   {
                         test.addError("Expected creation of final image '" + test.final_image + "' , file not found");
@@ -958,25 +938,22 @@ function execute_test(test, resultRootDirectory)
             let status = test.errors.length>0 ? "with " + test.errors.length + "errors" : "successfuly";
             console.noteln("Autotest: ", test_name, "' completed " + status);
       }
-       catch (x) {
+      catch (x) {
             console.criticalln("Autotest: exception detected during execute_test('", test_name, "') : ",  x );
             test.addError("Exception detected during execute_test(): " + x);
       }
 }
 
-
 function newAutoIntegrate()
 {
-      //autointegrate = null;
-      //gc();
       autointegrate = new AutoIntegrate();
-      AutoIntegrateTestDialog.prototype = new autointegrate.AutoIntegrateDialog();
+      autointegrate_gui = autointegrate.test_gui();
+      AutoIntegrateTestDialog.prototype = new autointegrate_gui.AutoIntegrateDialog();
 }
 
 // -----------------------------------------------------------------------------------------
 // The try block also open a local scope for let variables to avoid conflicts with the main script
-try
-      {
+try {
 
       newAutoIntegrate();
 
@@ -1008,13 +985,11 @@ try
       if (autotest_logfile_path == null)
       {
             let log_date = new Date;
-            let uniqueFilenamePart = 
-            format( "_%04d%02d%02d_%02d%02d%02d",
-                                    log_date.getFullYear(), log_date.getMonth() + 1, log_date.getDate(),
-                                    log_date.getHours(), log_date.getMinutes(), log_date.getSeconds());
+            let uniqueFilenamePart = format( "_%04d%02d%02d_%02d%02d%02d",
+                                     log_date.getFullYear(), log_date.getMonth() + 1, log_date.getDate(),
+                                     log_date.getHours(), log_date.getMinutes(), log_date.getSeconds());
             autotest_logfile_path = ensurePathEndSlash(autotest_result_directory) + "autotest" +  uniqueFilenamePart + ".log";
       }
-
  
       // Execute tests
       // Measure execution from start of testing
@@ -1104,7 +1079,6 @@ try
             console.noteln("    "+ test.createdWindows.length + " windows created: " + test.createdWindows.join(', '))
             console.writeln();
       }
-
 
       AutotestLog.saveAutotestLog();
       // null in case of error writing

@@ -3,4 +3,6 @@ FullProcessing/results
 FullProcessing/tests/AutoOutput
 FullProcessing/tests/AutoProcessed
 FullProcessing/tests/*.xisf
-CropPerformance/autotest_perf_files.txt
+
+*.bat
+*.txt
