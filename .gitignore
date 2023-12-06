@@ -3,6 +3,7 @@ FullProcessing/results
 FullProcessing/tests/AutoOutput
 FullProcessing/tests/AutoProcessed
 FullProcessing/tests/*.xisf
+SharedTests
 
 *.bat
 *.txt

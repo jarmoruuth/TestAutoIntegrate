@@ -1,5 +1,12 @@
 // TestFullProcessing.js
 
+// Default set Dec 6, 2023
+// run  -a="autotest_tests_default.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/FullProcessing/TestFullProcessing.js"
+
+// Flowchart only
+// run  -a="autotest_tests_flowchart.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/FullProcessing/TestFullProcessing.js"
+
+// Generic
 // run --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/FullProcessing/TestFullProcessing.js"
 
 // -----------------------------------------------------------------------------------------
@@ -42,8 +49,7 @@ let autotest_script_directory = autotest_script_path.substring(0,autotest_script
 // The directory containing the name of the file autotest_tests.txt
 var autotest_tests_directory = autotest_script_directory + "tests/";
 autotest_tests_directory = autotest_script_directory + "/"; // JR
-var autotest_test_file_name = "autotest_tests.txt"          // JR
-var autotest_test_file_path = autotest_tests_directory + autotest_test_file_name;
+var autotest_test_file_path;                                // set at startup
 // The default directory of the test files specified in autotest_tests.txt
 var autotest_default_tests_directory = autotest_tests_directory;
 
@@ -291,7 +297,7 @@ let Autotest = (function() {
             // The windows created by the test
             this.createdWindows = [];
       
-            // the errors, an empty array if executed successfuly
+            // the errors, an empty array if executed successfully
             this.errors = [];
 
             this.addError = function(msg)
@@ -490,10 +496,11 @@ let Autotest = (function() {
                   for (let i in log_lines)
                   {
                         let line = log_lines[i];
-                        let errorIndex = line.indexOf("Error: ");
+                        let error_txt = "Error:";
+                        let errorIndex = line.indexOf(error_txt);
                         if (errorIndex>0)
                         {                     
-                              errorIndex += 7 ; // Skip 'Error:'         
+                              errorIndex += error_txt.length ; // Skip 'Error:'
                               if (line.indexOf("FileDataCache::Load(): Corrupted cache data")>=0)
                               {
                                     test.addError("Error in log: " + line.substring(errorIndex) + 
@@ -683,10 +690,7 @@ let autotest_launch_commands = {
             // Update the command list to the parameter of 'execute'
             dialog.command_list = command_list;
             dialog.execute();
-
       },
-            
-
 }
 
 // -----------------------------------------------------------------------------------------
@@ -752,8 +756,6 @@ function AutoIntegrateTestDialog(test)
 
       }
 
-
-
       // The following commands must be executed in the context of onExecute of autoIntegrateDialog,
       // the first parameter is the dialog, the second the full command array
       // with the name of the command as the first element.
@@ -780,7 +782,7 @@ function AutoIntegrateTestDialog(test)
 
                   Autotest.saveReferenceState();
 
-                  // The next beginLog will save the autoexex console log.
+                  // The next beginLog will save the autoexec console log.
                   AutotestLog.trapBeginLog();
 
                   // TODO note that the log must be explored
@@ -797,7 +799,7 @@ function AutoIntegrateTestDialog(test)
             'continue': function(autoIntegrateDialog, test, command) {
                   Autotest.saveReferenceState();
 
-                  // The next beginLog will save the autoexex console log.
+                  // The next beginLog will save the autoexec console log.
                   AutotestLog.trapBeginLog();
 
                    // TODO note that the log must be explored
@@ -810,7 +812,7 @@ function AutoIntegrateTestDialog(test)
 
             // execute the exit dialog command, this closes the dialog and exit
             // the onExecute environment.
-            // Must be called aysychronously to avoid some deadlock
+            // Must be called asynchronously to avoid some deadlock
             'exit': function(autoIntegrateDialog, test, command) {
                   console.noteln("Autotest: Run completed, removing window in 2 seconds");
                   autoIntegrateDialog.exit_requested = true;
@@ -935,8 +937,8 @@ function execute_test(test, resultRootDirectory)
                   }
             }
       
-            let status = test.errors.length>0 ? "with " + test.errors.length + "errors" : "successfuly";
-            console.noteln("Autotest: ", test_name, "' completed " + status);
+            let status = test.errors.length>0 ? "with " + test.errors.length + "errors" : "successfully";
+            console.noteln("Autotest: '", test_name, "' completed " + status);
       }
       catch (x) {
             console.criticalln("Autotest: exception detected during execute_test('", test_name, "') : ",  x );
@@ -954,6 +956,15 @@ function newAutoIntegrate()
 // -----------------------------------------------------------------------------------------
 // The try block also open a local scope for let variables to avoid conflicts with the main script
 try {
+
+      if (jsArguments.length > 0) {
+            var autotest_test_file_name = jsArguments[0];
+      } else {
+            var autotest_test_file_name = "autotest_tests.txt"          // JR
+      }
+      autotest_test_file_path = autotest_tests_directory + autotest_test_file_name;
+      console.writeln("Using autotest_test_file_name " + autotest_test_file_name);
+      console.writeln("Using autotest_test_file_path " + autotest_test_file_path);
 
       newAutoIntegrate();
 
@@ -1052,7 +1063,7 @@ try {
             let test = tests[i];
             let test_name = test.test_name;
             let errors =  test.errors;
-            let result_status = errors.length>0 ? "in error" : "successfuly"
+            let result_status = errors.length>0 ? "in error" : "successfully"
             console.noteln("    ",test_name, " terminated ", result_status);
             if (test.final_image_id != null)
             {
@@ -1083,7 +1094,10 @@ try {
       AutotestLog.saveAutotestLog();
       // null in case of error writing
       if (autotest_logfile_path != null) console.noteln("Autotest: logfile written to " + autotest_logfile_path);
-          
+
+      console.writeln("autotest_test_file_name " + autotest_test_file_name);
+      console.writeln("autotest_test_file_path " + autotest_test_file_path);
+
       console.noteln("TestAutoIntegrate terminated, tests execution time "+(end_time-start_time)/1000+" sec");
           
 }

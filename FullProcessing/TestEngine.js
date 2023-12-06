@@ -33,5 +33,5 @@ try {
 
 } catch (x) {
 
-      console.noteln("TestEngine failed, catched error: " + x);
+      console.noteln("TestEngine failed, catch error: " + x);
 }
