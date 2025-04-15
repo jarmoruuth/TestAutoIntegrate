@@ -5,5 +5,7 @@ FullProcessing/tests/AutoProcessed
 FullProcessing/tests/*.xisf
 SharedTests
 
+runcmdline/results
+
 *.bat
 *.txt
