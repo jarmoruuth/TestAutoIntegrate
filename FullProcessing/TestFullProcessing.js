@@ -6,8 +6,16 @@
 // Flowchart only
 // run  -a="autotest_tests_flowchart.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/FullProcessing/TestFullProcessing.js"
 
+// HaLRGB
+// run  -a="autotest_tests_HaLRGB.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/FullProcessing/TestFullProcessing.js"
+
+// MARS
+// run  -a="autotest_tests_mars.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/FullProcessing/TestFullProcessing.js"
+
 // Generic
 // run --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/FullProcessing/TestFullProcessing.js"
+
+// run  -a="autotest_fastintegration.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/FullProcessing/TestFullProcessing.js"
 
 // -----------------------------------------------------------------------------------------
 // Parameterize the included main script, overloading
@@ -1042,7 +1050,7 @@ try {
                         reference_image = autotest_reference_root_directory + test.test_name + 
                                           "/reference_" + File.extractName(test.final_image) + ".xisf";
                         //console.writeln("DEBUG: outside reference_image ", reference_image, File.exists(reference_image) ? " exists":" missing");
-                                    }
+                  }
                   if (File.exists(reference_image)) {
                         window = autointegrate.openImageWindowFromFile(reference_image);
                         window.mainView.id = Autotest.ensureValidViewId(test.test_name + "_" + File.extractName(reference_image));
