@@ -2,26 +2,31 @@
 // -----------------------------------------------------------------------------------------
 // runcmdline.js
 //
-// Run AutoIntegreate.js script from command line with a set of tests. Tests are defined in a
-// file runcmdline.txt in the same directory as the script. The tests are executed in the
-// order they are defined in the file. The script is designed to be run from the command line
-// with the --run option of PixInsight.
+// This script runs AutoIntegreate.js script from the command line using a Json file. 
+// Json file is defined in a file runcmdline.txt in the same directory as the script. 
+// The script can be be run from the command line with the --run option of PixInsight.
 //
-// The script assumes that AutoIntegrate source is found in the sibling directory 
-// ../../AutoIntegrate/AutoIntegrate.js. If this is not the case, you must modify the script 
-// #include definition to point to the correct location.
+// The script assumes that AutoIntegrate source is found in the Windows default installation
+// directory. If this is not the case, you must modify the script #include definition to 
+// point to the correct location.
 //
-// Format of the test file:
-// test_path[,test_name]
+// Format of the runcmdline.txt file:
+// path-to-json-file[,optional-name]
 //
-// test_path is the path to the AutoIntegrate Json file that contains image names and 
-// script parameters. Test output goes to the  results subdirectory of the script directory.
+// The path-to-json-file is the path to the AutoIntegrate Json file that contains image names and 
+// script parameters. Json file can be generated with AutoIntegrate script.Note that the
+// runcmdline.txt can include a list of files, one per line. The script will run the AutoIntegrate
+// script for each of the files in the list.
+// Script output goes to the results subdirectory.
 //
 // Sample command line in Windows:
 // "C:\Program Files\PixInsight\bin\PixInsight.exe" --run="C:\GitHub\TestAutoIntegrate\runcmdline\runcmdline.js" --force-exit
 //
 // Sample runcmdline.txt:
 // D:/Telescopes/test/LRGB_bin2x2/AutoSetupTestDefault.json, LRGB
+// 
+// This file a slightly modified version of the original TestFullProcessing.js file that
+// was created by bitli.
 // -----------------------------------------------------------------------------------------
 
 
@@ -31,10 +36,12 @@
 
 #define TEST_AUTO_INTEGRATE
 
-// By default assume that repository is a sibling of AutoIntegrate
+// -----------------------------------------------------------------------------------------
+// By default use Windows defauilt installation path
 // ************* Adapt if needed ********************
-#include "../../AutoIntegrate/AutoIntegrate.js"
+#include "C:/Program Files/PixInsight/src/scripts/AutoIntegrate/AutoIntegrate.js"
 
+// -----------------------------------------------------------------------------------------
 let autointegrate = null;        // autointegrate module
 let autointegrate_gui = null;    // autointegrate GUI module
 let ai_par = null;               // autointegrate parameters
