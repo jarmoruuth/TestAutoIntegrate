@@ -3,6 +3,9 @@
 // Default set Dec 6, 2023
 // run  -a="autotest_tests_default.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/FullProcessing/TestFullProcessing.js"
 
+// Super simple one test
+// run  -a="autotest_tests1.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/FullProcessing/TestFullProcessing.js"
+
 // Flowchart only
 // run  -a="autotest_tests_flowchart.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/FullProcessing/TestFullProcessing.js"
 
@@ -26,6 +29,11 @@
 // By default assume that repository is a sibling of AutoIntegrate
 // ************* Adapt if needed ********************
 #include "../../AutoIntegrate/AutoIntegrate.js"
+let check_testmode_log = true; // Check testmode.log for errors
+
+// To create reference TestMode.log files
+// #include "../../AutoIntegrate.reference/AutoIntegrate-1.72.1/AutoIntegrate.js"
+// let check_testmode_log = false;
 
 let autointegrate = null;        // autointegrate module
 let autointegrate_gui = null;    // autointegrate GUI module
@@ -312,7 +320,7 @@ let Autotest = (function() {
             {
                   this.errors[this.errors.length] = msg;  
             }
- 
+
             this.toString = () => {
                   return this.test_name + "(" + this.test_directory +")";
             }
@@ -507,18 +515,100 @@ let Autotest = (function() {
                         let error_txt = "Error:";
                         let errorIndex = line.indexOf(error_txt);
                         if (errorIndex>0)
-                        {                     
+                        {
+                              if (line.indexOf("Parsing ISOSPEED FITS keyword: Parsing 64-bit floating point expression: conversion error") >= 0) {
+                                    // This is a known error that can be ignored
+                                    continue;
+                              }
                               errorIndex += error_txt.length ; // Skip 'Error:'
                               if (line.indexOf("FileDataCache::Load(): Corrupted cache data")>=0)
                               {
                                     test.addError("Error in log: " + line.substring(errorIndex) + 
                                     "\nTo clear the cache, open ImageIntegration, select the tool (at bottom right) and clean both caches");
-                              }
-                              else{
+                              } else {
                                     test.addError("Error in log: " + line.substring(errorIndex));
                               }
                         }
+                        // Catch some warnings as errors
+                        let warning_txt = "Warning [";
+                        let warningIndex = line.indexOf(warning_txt);
+                        if (warningIndex>0)
+                        {
+                              warningIndex += warning_txt.length - 1; // Skip 'Warning '
+                              test.addError("Warning in log: " + line.substring(warningIndex));
+                        }
                   }
+            }
+      }
+
+      // Load TestMode.log and reference_TestMode.log and compare them
+      let parse_testmode_log_for_errors = function(test)
+      {
+            let logFilePath = ai_run_results.testmode_log_name;
+            if (logFilePath == null || logFilePath == '')
+            { 
+                  test.addError("Test mode log file not defined, likely not created");
+                  return;
+            }
+            if (!File.exists(logFilePath))
+            {
+                  test.addError("Log file '" + logFilePath + "' not found");
+                  return;
+            }
+            let referenceLogFilePath = File.extractDrive(logFilePath) +
+                                       File.extractDirectory(logFilePath) + 
+                                       "/reference_" + 
+                                       File.extractName(logFilePath) + 
+                                       File.extractExtension(logFilePath);
+            if (!File.exists(referenceLogFilePath))
+            {
+                  test.addError("Reference log file '" + referenceLogFilePath + "' not found");
+                  return;
+            }
+
+            let log_lines = File.readLines(logFilePath);
+            let reference_log_lines = File.readLines(referenceLogFilePath);
+            // Compare the log lines
+            // test.log_lines and test.reference_log_lines are lines separate by newline, find the first difference
+            let min_lines = Math.min(log_lines.length, reference_log_lines.length);
+            let first_difference = -1;
+            for (let j=0; j<min_lines; j++)
+            {
+                  if (log_lines[j] != reference_log_lines[j])
+                  {
+                        if (log_lines[j].startsWith("PixInsight version")) {
+                              continue;
+                        }
+                        if (log_lines[j].startsWith("AutoIntegrate v")) {
+                              continue;
+                        }
+                        if (log_lines[j].startsWith("Processing date")) {
+                              continue;
+                        }
+                        if (log_lines[j].startsWith("StarXTerminator AI model")) {
+                              continue;
+                        }
+                        if (log_lines[j].startsWith("Script completed")) {
+                              continue;
+                        }
+                        if (log_lines[j].startsWith("best_ssweight")) {
+                              continue;
+                        }
+                        // Skip lines with text "best ssweight"
+                        if (log_lines[j].indexOf("best ssweight") >= 0) {
+                              continue;
+                        }
+                        if (log_lines[j].startsWith("SSWEIGHT") && !log_lines[j].startsWith("SSWEIGHT limit")) {
+                              continue;
+                        }
+                        first_difference = j;
+                        break;
+                  }
+            }
+            if (first_difference != -1) {
+                  test.addError(logFilePath + ": First difference in log files at line " + first_difference);
+            } else if (log_lines.length != reference_log_lines.length) {
+                  test.addError(logFilePath + ": Log files have different number of lines: " + log_lines.length + " vs " + reference_log_lines.length);
             }
       }
 
@@ -567,6 +657,7 @@ let Autotest = (function() {
             'saveReferenceState': saveReferenceState,
             'compareReferenceState': compareReferenceState,
             'parse_log_for_errors': parse_log_for_errors,
+            'parse_testmode_log_for_errors': parse_testmode_log_for_errors,
             'resolveRelativePath': resolveRelativePath,
             'ensureValidViewId': ensureValidViewId,
             'ensureValidNewViewId': ensureValidNewViewId
@@ -910,7 +1001,7 @@ function execute_test(test, resultRootDirectory)
             ai_par = autointegrate.test_getpar();
             ai_ppar = autointegrate.test_getppar();
             ai_run_results = autointegrate.get_run_results();
- 
+
             for (let command_index in command_list)
             {
                   let command = command_list[command_index];
@@ -924,7 +1015,10 @@ function execute_test(test, resultRootDirectory)
             test.final_image = ai_run_results.final_image_file;
 
             Autotest.parse_log_for_errors(test);
-
+            if (check_testmode_log) {
+                  Autotest.parse_testmode_log_for_errors(test);
+            }
+            
             if (test.final_image != null && test.final_image != '') { // empty string in some cases of errors
 
                   // Check that the final image  exists, otherwise this is an error in the test
@@ -1042,15 +1136,10 @@ try {
                   window.show();
                   test.final_image_id = window.mainView.id;
 
-                  // load reference image - First look in target directory, then in the 'eference' directory if it is specified
+                  // load reference image - Look in target directory for file reference_<final_image_name>.xisf
                   let reference_image = File.extractDrive(test.final_image) + File.extractDirectory(test.final_image) +
                                           "/reference_" + File.extractName(test.final_image) + ".xisf";
                   //console.writeln("DEBUG: output reference_image ", reference_image, File.exists(reference_image) ? " exists":" missing");
-                  if (! File.exists(reference_image) && autotest_reference_root_directory != null) {
-                        reference_image = autotest_reference_root_directory + test.test_name + 
-                                          "/reference_" + File.extractName(test.final_image) + ".xisf";
-                        //console.writeln("DEBUG: outside reference_image ", reference_image, File.exists(reference_image) ? " exists":" missing");
-                  }
                   if (File.exists(reference_image)) {
                         window = autointegrate.openImageWindowFromFile(reference_image);
                         window.mainView.id = Autotest.ensureValidViewId(test.test_name + "_" + File.extractName(reference_image));
@@ -1066,7 +1155,7 @@ try {
       
       console.noteln("-----------------------------------------------------");
       console.noteln("Autotest: Test results in directory ", autotest_result_directory);
-      for (let i =0; i<tests.length; i++)  
+      for (let i = 0; i < tests.length; i++)  
       {
             let test = tests[i];
             let test_name = test.test_name;
