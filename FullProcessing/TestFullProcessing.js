@@ -20,6 +20,10 @@
 
 // run  -a="autotest_fastintegration.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/FullProcessing/TestFullProcessing.js"
 
+// Also
+// run -a="do_not_read_settings" -a="do_not_write_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate/AutoIntegrate.js"
+
+
 // -----------------------------------------------------------------------------------------
 // Parameterize the included main script, overloading
 // the ai_debug parameters and disabling main()
@@ -40,7 +44,6 @@ let autointegrate_gui = null;    // autointegrate GUI module
 let ai_par = null;               // autointegrate parameters
 let ai_ppar = null;              // autointegrate persistent parameters
 let ai_run_results = null;
-
 
 // -----------------------------------------------------------------------------------------
 
@@ -64,7 +67,8 @@ let autotest_script_directory = autotest_script_path.substring(0,autotest_script
 
 // The directory containing the name of the file autotest_tests.txt
 var autotest_tests_directory = autotest_script_directory + "tests/";
-autotest_tests_directory = autotest_script_directory + "/"; // JR
+// Check file path end with '/', if not, add it
+autotest_tests_directory = autotest_script_directory;
 var autotest_test_file_path;                                // set at startup
 // The default directory of the test files specified in autotest_tests.txt
 var autotest_default_tests_directory = autotest_tests_directory;
@@ -1155,6 +1159,7 @@ try {
       
       console.noteln("-----------------------------------------------------");
       console.noteln("Autotest: Test results in directory ", autotest_result_directory);
+      let iserrors = false;
       for (let i = 0; i < tests.length; i++)  
       {
             let test = tests[i];
@@ -1183,6 +1188,7 @@ try {
                               console.warningln("         ", error_lines[j].trim());
                         }
                   }
+                  iserrors = true;
             }
             console.noteln("    "+ test.createdWindows.length + " windows created: " + test.createdWindows.join(', '))
             console.writeln();
@@ -1194,6 +1200,12 @@ try {
 
       console.writeln("autotest_test_file_name " + autotest_test_file_name);
       console.writeln("autotest_test_file_path " + autotest_test_file_path);
+
+      if (iserrors) {
+            console.critical("Autotest: TestAutoIntegrate terminated with errors");
+      } else {
+            console.noteln("Autotest: TestAutoIntegrate terminated successfully");
+      }
 
       console.noteln("TestAutoIntegrate terminated, tests execution time "+(end_time-start_time)/1000+" sec");
           
