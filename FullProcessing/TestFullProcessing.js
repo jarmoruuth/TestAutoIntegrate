@@ -33,6 +33,7 @@
 // By default assume that repository is a sibling of AutoIntegrate
 // ************* Adapt if needed ********************
 #include "../../AutoIntegrate/AutoIntegrate.js"
+
 let check_testmode_log = true; // Check testmode.log for errors
 
 // To create reference TestMode.log files
@@ -157,17 +158,17 @@ let AutotestLog = (function() {
                   {
                   try
                         {
-                        let logFile = new File;
-                        logFile.openOrCreate( autotest_logfile_path );
-                        logFile.seekEnd();
-                        logFile.write(log);
-                        logFile.close();
+                              let logFile = new File;
+                              logFile.openOrCreate( autotest_logfile_path );
+                              logFile.seekEnd();
+                              logFile.write(log);
+                              logFile.close();
                         }                      
                         catch ( error )
                         {
-                        // Unable to create file.
-                        console.warningln( "Autotest: Unable to append log to file: '" + autotest_logfile_path + "'  (" + error.message + ")." );
-                        autotest_logfile_path = null;
+                              // Unable to create file.
+                              console.warningln( "Autotest: Unable to append log to file: '" + autotest_logfile_path + "'  (" + error.message + ")." );
+                              autotest_logfile_path = null;
                         }
                   }
                   else {
@@ -803,6 +804,9 @@ function AutoIntegrateTestDialog(test)
 {
       this.__base__ = autointegrate_gui.AutoIntegrateDialog;
       this.__base__();
+
+      console.writeln("Autotest: Creating AutoIntegrateTestDialog for test '", test.test_name, "'");
+
       this.command_list = ["run"]; // Default command, updated at test creation
       this.current_test = test;
       this.test_name = test.test_name;
@@ -1202,7 +1206,7 @@ try {
       console.writeln("autotest_test_file_path " + autotest_test_file_path);
 
       if (iserrors) {
-            console.critical("Autotest: TestAutoIntegrate terminated with errors");
+            console.criticalln("Autotest: TestAutoIntegrate terminated with errors");
       } else {
             console.noteln("Autotest: TestAutoIntegrate terminated successfully");
       }
@@ -1214,6 +1218,3 @@ catch (x) {
       AutotestLog.restoreOriginalConsoleLog();
       console.noteln("TestAutoIntegrate failed, catched error: " + x);
 }
-
-
-
