@@ -24,6 +24,7 @@
 #include "../../AutoIntegrate/ImageEnhancements.js"
 #include "../../AutoIntegrate/ImageStretching.js"
 #include "../../AutoIntegrate/NarrowbandCombinations.js"
+#include "../../AutoIntegrate/GradientCorrection.js"
 
 // ============================================================================
 // CONFIGURATION - Edit this path to match your setup
@@ -117,7 +118,7 @@ var TestRunner = {
 var Scripts = [
    {
       name: "ImageStretching",
-      dialogClass: "ImageStretchingDialog",
+      dialogClass: "AutoIntegrateImageStretchingDialog",
       includes: [
          AUTOINTEGRATE_PATH + "AutoIntegrateGlobal.js",
          AUTOINTEGRATE_PATH + "AutoIntegrateUtil.js",
@@ -133,13 +134,13 @@ var Scripts = [
          "AutoIntegrateGUITools",
          "AutoIntegratePreviewControl",
          "AutoIntegrateEnhancementsGUI",
-         "ImageStretchingDialog"
+         "AutoIntegrateImageStretchingDialog"
       ]
    },
    
    {
       name: "ImageEnhancements",
-      dialogClass: "ImageEnhancementsDialog",
+      dialogClass: "AutoIntegrateImageEnhancementsDialog",
       includes: [
          AUTOINTEGRATE_PATH + "AutoIntegrateGlobal.js",
          AUTOINTEGRATE_PATH + "AutoIntegrateUtil.js",
@@ -155,13 +156,13 @@ var Scripts = [
          "AutoIntegrateGUITools",
          "AutoIntegratePreviewControl",
          "AutoIntegrateEnhancementsGUI",
-         "ImageEnhancementsDialog"
+         "AutoIntegrateImageEnhancementsDialog"
       ]
    },
 
-{
+   {
       name: "NarrowbandCombinations",
-      dialogClass: "NarrowbandCombinationsDialog",
+      dialogClass: "AutoIntegrateNarrowbandCombinationsDialog",
       includes: [
          AUTOINTEGRATE_PATH + "AutoIntegrateGlobal.js",
          AUTOINTEGRATE_PATH + "AutoIntegrateUtil.js",
@@ -175,9 +176,30 @@ var Scripts = [
          "AutoIntegrateEngine",
          "AutoIntegrateGUITools",
          "AutoIntegratePreviewControl",
-         "NarrowbandCombinationsDialog"
+         "AutoIntegrateNarrowbandCombinationsDialog"
       ]
-   }
+   },
+
+   {
+      name: "GradientCorrection",
+      dialogClass: "AutoIntegrateGradientCorrectionDialog",
+      includes: [
+         AUTOINTEGRATE_PATH + "AutoIntegrateGlobal.js",
+         AUTOINTEGRATE_PATH + "AutoIntegrateUtil.js",
+         AUTOINTEGRATE_PATH + "AutoIntegrateEngine.js",
+         AUTOINTEGRATE_PATH + "AutoIntegrateGUITools.js",
+         AUTOINTEGRATE_PATH + "AutoIntegratePreview.js"
+      ],
+      constructors: [
+         "AutoIntegrateGlobal",
+         "AutoIntegrateUtil",
+         "AutoIntegrateEngine",
+         "AutoIntegrateGUITools",
+         "AutoIntegratePreviewControl",
+         "AutoIntegrateGradientCorrectionDialog"
+      ]
+   },
+
 ];
 
 // ============================================================================
