@@ -4,6 +4,8 @@ FullProcessing/tests/AutoOutput
 FullProcessing/tests/AutoProcessed
 FullProcessing/tests/*.xisf
 SharedTests
+results
+testimages
 
 runcmdline/results
 
