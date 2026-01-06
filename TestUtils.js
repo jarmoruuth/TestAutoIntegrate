@@ -130,7 +130,7 @@ var TestRunner = {
 // Parse the known log for errors, add them to test error
 function parseLogForErrors(logFilePath)
 {
-      // get logFilePath from the script
+      console.writeln("Parsing log for errors: " + logFilePath);
       if (logFilePath == null || logFilePath == '') { 
             TestRunner.addError("Log file not defined, likely not created");
             return;
@@ -170,9 +170,10 @@ function parseLogForErrors(logFilePath)
 // Load TestMode.log and reference_TestMode.log and compare them
 function parseTestmodeLogForErrors(logFilePath)
 {
+      console.writeln("Parsing testmode log for errors: " + logFilePath);
       if (logFilePath == null || logFilePath == '') { 
             TestRunner.addError("Test mode log file not defined, likely not created");
-            return;
+            return false;
       }
       if (!File.exists(logFilePath)) {
             TestRunner.addError("Log file '" + logFilePath + "' not found");
@@ -185,7 +186,7 @@ function parseTestmodeLogForErrors(logFilePath)
                                  File.extractExtension(logFilePath);
       if (!File.exists(referenceLogFilePath)) {
             TestRunner.addError("Reference log file '" + referenceLogFilePath + "' not found");
-            return;
+            return false;
       }
 
       let log_lines = File.readLines(logFilePath);
@@ -226,8 +227,13 @@ function parseTestmodeLogForErrors(logFilePath)
       }
       if (first_difference != -1) {
             TestRunner.addError(logFilePath + ": First difference in log files at line " + first_difference);
+            return false
       } else if (log_lines.length != reference_log_lines.length) {
             TestRunner.addError(logFilePath + ": Log files have different number of lines: " + log_lines.length + " vs " + reference_log_lines.length);
+            return false;
+      } else {
+            // No differences
+            return true;
       }
 }
 
