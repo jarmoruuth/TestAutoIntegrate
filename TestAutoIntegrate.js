@@ -7,7 +7,7 @@
  */
 
 // run  -a="autotest_tests_default.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
-// run  --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
+// run  -a="autotest_tests1.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
 
 #define TEST_AUTO_INTEGRATE
 
@@ -31,6 +31,8 @@ this.testutils = testutils;
 var TestRunner = testutils.TestRunner;
 
 var run_results = [];
+
+var test_start_time = new Date();
 
 // ============================================================================
 // Helper functions
@@ -90,6 +92,13 @@ function loadFinalAndReferenceImages()
                                     "/reference_" + File.extractName(run.final_image_file) + ".xisf";
             if (File.exists(reference_image)) {
                console.writeln("Loading final and reference images for test: " + run.test_name);
+               // Check that file date is later than test start time
+               // Get file modification time
+               var fileInfo = new FileInfo(run.final_image_file);
+               var fileTime = fileInfo.lastModified;
+               if (fileTime < test_start_time) {
+                  TestRunner.addError("Final image file is older than test start time for test: " + run.test_name);
+               }
                let final_img = openImageWindowFromFile(run.final_image_file);
                if (final_img) {
                   final_img.mainView.id = run.test_name + "_" + File.extractName(run.final_image_file);
@@ -163,8 +172,9 @@ function runTestCase(testscript, testname) {
 // Run All Tests
 // ============================================================================
 
-function runAllTests() {
+function runAllTests(testInstance) {
 
+      var deleteResult = testInstance.testutils.deleteOldLogFiles(testInstance.testutils.testResultsDir, 365);
       testutils.forceCloseAll();
       gc();
 
@@ -173,15 +183,37 @@ function runAllTests() {
       if (jsArguments.length > 0) {
             var testFileName = jsArguments[0];
       } else {
-            var testFileName = "autotest_tests3.txt";
+            var testFileName = "autotest_tests_default.txt";
       }
 
       var tests = this.loadTestFile(this.testutils.testDir + testFileName);
 
+      var testNames = []
       for (var i = 0; i < tests.length; i++) {
+         testNames.push(tests[i].name);
+      }
+
+      var progressDialog = new AutoIntegrateTestProgressDialog(TestRunner);
+      progressDialog.initializeTests(testNames);
+      progressDialog.show();
+      processEvents();
+
+      for (var i = 0; i < tests.length; i++) {
+
+         if (TestRunner.iscanceled()) {
+            TestRunner.fail("RunAllTests", "Test run canceled by user.");
+            break;
+         }
+
          var test = tests[i];
+
+         progressDialog.startTest(i);
+
          console.writeln("Running test: " + test.name + " (" + test.script + ")");
          runTestCase(test.script, test.name);
+
+         progressDialog.completeTest(i, TestRunner.islastsuccess());
+
          testutils.forceCloseAll();
          gc();
       }
@@ -189,7 +221,27 @@ function runAllTests() {
       // Load final and reference images for all tests
       loadFinalAndReferenceImages();
 
-      return TestRunner.summary();
+      // Get summary
+      var summary = progressDialog.getSummary();
+      console.writeln(format("\n=== Test Summary ==="));
+      console.writeln(format("Total: %d, Passed: %d, Failed: %d", 
+                           summary.total, summary.passed, summary.failed));
+      console.writeln(format("Total time: %.2fs", summary.totalTime));
+
+      if (TestRunner.summary()) {
+         console.writeln("All tests passed.");
+      } else {
+         console.criticalln("Some tests failed. See above for details.");
+      }
+      console.writeln("");
+      console.writeln("Deleted " + deleteResult.deleted + " old log files, keeping " + deleteResult.kept + " files.");
+      if (deleteResult.errors > 0) {
+         console.writeln("Encountered " + deleteResult.errors + " errors while deleting old log files.");
+      }
+
+      // Dialog stays open for user to review results
+      progressDialog.execute();
+
 }
 
 this.runAllTests = runAllTests;
@@ -210,19 +262,7 @@ function main() {
 
    var test = new AutoIntegrateTestFullProcessing();
 
-   var deleteResult = test.testutils.deleteOldLogFiles(test.testutils.testResultsDir, 365);
-
-   if (test.runAllTests()) {
-      console.writeln("All tests passed successfully.");
-   } else {
-      console.criticalln("Some tests failed. See above for details.");
-   }
-
-   console.writeln("");
-   console.writeln("Deleted " + deleteResult.deleted + " old log files, keeping " + deleteResult.kept + " files.");
-   if (deleteResult.errors > 0) {
-      console.writeln("Encountered " + deleteResult.errors + " errors while deleting old log files.");
-   }
+   test.runAllTests(test);
 
    test = null;
    gc();
