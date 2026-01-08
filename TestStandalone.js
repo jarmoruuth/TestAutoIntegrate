@@ -8,7 +8,14 @@
  *   2. Check console for results
  */
 
+// Run this test:
 // run --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestStandalone.js"
+
+// Run standalone scripts without tests:
+// run -a="do_not_read_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate/ImageEnhancements.js"
+// run -a="do_not_read_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate/ImageStretching.js"
+// run -a="do_not_read_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate/NarrowbandCombinations.js"
+// run -a="do_not_read_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate/GradientCorrection.js"
 
 #define AUTOINTEGRATE_NO_MAIN
 
