@@ -23,6 +23,7 @@
 #include "../AutoIntegrate/ImageStretching.js"
 #include "../AutoIntegrate/NarrowbandCombinations.js"
 #include "../AutoIntegrate/GradientCorrection.js"
+#include "../AutoIntegrate/SelectiveColor.js"
 
 #include "TestUtils.js"
 
@@ -40,6 +41,7 @@ var testutils = new AutoIntegrateTestUtils();
 this.testutils = testutils;
 
 var TestRunner = testutils.TestRunner;
+this.TestRunner = TestRunner;
 
 var autoIntegrateDir = testutils.testRootDir + "/AutoIntegrate/";
 
@@ -140,7 +142,28 @@ var Scripts = [
          "AutoIntegratePreviewControl",
          "AutoIntegrateGradientCorrectionDialog"
       ]
+   },
+
+   {
+      name: "SelectiveColor",
+      dialogClass: "AutoIntegrateSelectiveColorDialog",
+      includes: [
+         autoIntegrateDir + "AutoIntegrateGlobal.js",
+         autoIntegrateDir + "AutoIntegrateUtil.js",
+         autoIntegrateDir + "AutoIntegrateEngine.js",
+         autoIntegrateDir + "AutoIntegrateGUITools.js",
+         autoIntegrateDir + "AutoIntegratePreview.js"
+      ],
+      constructors: [
+         "AutoIntegrateGlobal",
+         "AutoIntegrateUtil",
+         "AutoIntegrateEngine",
+         "AutoIntegrateGUITools",
+         "AutoIntegratePreviewControl",
+         "AutoIntegrateSelectiveColorDialog"
+      ]
    }
+
 ];
 
 // ============================================================================
@@ -202,12 +225,6 @@ function testScript(script) {
 function runInstantiationTests() {
       TestRunner.beginLog("InstantiationTests");
 
-      console.writeln("");
-      console.writeln("═".repeat(50));
-      console.writeln("AutoIntegrate Instantiation Tests");
-      console.writeln("═".repeat(50));
-      console.writeln("");
-      
       for (var i = 0; i < Scripts.length; i++) {
          testScript(Scripts[i]);
       }
@@ -381,33 +398,93 @@ function TestNarrowbandCombinations() {
       gc();
 }
 
-function runDetailedTests() {
-      console.writeln("");
-      console.writeln("═".repeat(50));
-      console.writeln("AutoIntegrate Detailed Tests");
-      console.writeln("═".repeat(50));
-      console.writeln("");
+function TestSelectiveColor() {
+      var testname = "SelectiveColor";
+      
+      TestRunner.beginLog(testname);
 
-      TestGradientCorrection();
-      TestImageStretching();
-      TestImageEnhancements();
-      TestNarrowbandCombinations();
+      console.writeln("Testing Selective Color methods...");
+
+      try {
+         var methods = [ 'Gold and Blue' ];
+
+         var dialog = new AutoIntegrateSelectiveColorDialog();
+
+         var image = testutils.testDir + "testimages/TestSelectiveColor.xisf";
+         var imageWindow = dialog.util.openImageWindowFromFile(image);
+         imageWindow.mainView.id = testname;
+         imageWindow.show();
+
+         dialog.enhancements_gui.createTargetImageSizerOnItemSelected(imageWindow.mainView.id);
+
+         for (var i = 0; i < methods.length; i++) {
+            var method = methods[i];
+            console.writeln("  Method " + method);
+            dialog.selectiveColor.setPreset(method);
+            dialog.enhancements_gui.enhancementsApplyButtonOnClick();
+         }
+         dialog = null;
+         TestRunner.pass(testname);
+      } catch (e) {
+         TestRunner.fail(testname, "Exception: " + (e.message || String(e)));
+      }
+
+      TestRunner.endLog();
+
+      gc();
 }
 
 // ============================================================================
 // Run All Tests
 // ============================================================================
 
-function runAllTests() {
+function runAllTests(progressDialog) {
    testutils.forceCloseAll();
    gc();
 
    TestRunner.reset();
 
-   runInstantiationTests();
-   runDetailedTests();
+   var tests = []
+   tests.push({ name:"runInstantiationTests", func:runInstantiationTests });
+   tests.push({ name:"SelectiveColor", func:TestSelectiveColor });
+   tests.push({ name:"GradientCorrection", func:TestGradientCorrection });
+   tests.push({ name:"ImageStretching", func:TestImageStretching });
+   tests.push({ name:"ImageEnhancements", func:TestImageEnhancements });
+   tests.push({ name:"NarrowbandCombinations", func:TestNarrowbandCombinations });
 
-   return TestRunner.summary();
+   var testNames = []
+   for (var i = 0; i < tests.length; i++) {
+      testNames.push(tests[i].name);
+   }
+
+   progressDialog.initializeTests(testNames);
+   progressDialog.show();
+   processEvents();
+
+   for (var i = 0; i < tests.length; i++) {
+      if (TestRunner.iscanceled()) {
+         TestRunner.fail("RunAllTests", "Test run canceled by user.");
+         break;
+      }
+
+      console.writeln("");
+      console.writeln("═".repeat(50));
+      console.writeln("Test: " + tests[i].name);
+      console.writeln("═".repeat(50));
+      console.writeln("");
+      
+      progressDialog.startTest(i);
+
+      tests[i].func();
+      
+      progressDialog.completeTest(i, TestRunner.islastsuccess(), TestRunner.lasterror());
+      processEvents();
+      gc();
+   }
+
+   var success = TestRunner.summary();
+
+   return success;
 }
 
 this.runAllTests = runAllTests;
@@ -430,7 +507,9 @@ function main() {
 
    var deleteResult = test.testutils.deleteOldLogFiles(test.testutils.testResultsDir, 365);
 
-   if (test.runAllTests()) {
+   var progressDialog = new AutoIntegrateTestProgressDialog(test.TestRunner);
+
+   if (test.runAllTests(progressDialog)) {
       console.writeln("All tests passed successfully.");
    } else {
       console.criticalln("Some tests failed. See above for details.");
@@ -442,6 +521,10 @@ function main() {
       console.writeln("Encountered " + deleteResult.errors + " errors while deleting old log files.");
    }
 
+   // Dialog stays open for user to review results
+   progressDialog.execute();
+
+   progressDialog = null;
    test = null;
    gc();
 }

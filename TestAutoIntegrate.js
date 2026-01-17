@@ -25,6 +25,8 @@ function AutoIntegrateTestFullProcessing()
 this.__base__ = Object;
 this.__base__();
 
+var self = this;
+
 var testutils = new AutoIntegrateTestUtils();
 this.testutils = testutils;
 
@@ -128,6 +130,10 @@ function loadFinalAndReferenceImages()
 // Detailed Tests
 // ============================================================================
 
+function onCancelRequested() {
+      return self.autointegrate.cancel();
+}
+
 function runTestCase(testscript, testname) {
       
       TestRunner.beginLog(testname);
@@ -136,10 +142,15 @@ function runTestCase(testscript, testname) {
 
       try {
          var autointegrate = new AutoIntegrate();
+         self.autointegrate = autointegrate;
 
          autointegrate.test_initialize_new();
 
+         TestRunner.set_cancel_callback(onCancelRequested);
+
          autointegrate.autointegrate_main(testscript);
+
+         TestRunner.set_cancel_callback(null);
 
          var this_run = autointegrate.get_run_results();
          this_run.test_name = testname;
@@ -157,6 +168,10 @@ function runTestCase(testscript, testname) {
          }
 
          autointegrate = null;
+         self.autointegrate = null;
+
+         gc();
+         
       } catch (e) {
          TestRunner.fail(testname, "Exception: " + (e.message || String(e)));
       }
@@ -212,7 +227,7 @@ function runAllTests(testInstance) {
          console.writeln("Running test: " + test.name + " (" + test.script + ")");
          runTestCase(test.script, test.name);
 
-         progressDialog.completeTest(i, TestRunner.islastsuccess());
+         progressDialog.completeTest(i, TestRunner.islastsuccess(), TestRunner.lasterror());
 
          testutils.forceCloseAll();
          gc();
@@ -241,7 +256,6 @@ function runAllTests(testInstance) {
 
       // Dialog stays open for user to review results
       progressDialog.execute();
-
 }
 
 this.runAllTests = runAllTests;

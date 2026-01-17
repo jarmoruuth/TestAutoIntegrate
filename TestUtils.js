@@ -45,11 +45,12 @@ function AutoIntegrateTestProgressDialog(TestRunner) {
       }
       g.end();
    };
-   this.progressBar.dialog = this;
    
    // Progress text
    this.progressLabel = new Label(this);
    this.progressLabel.text = "0 / 0 tests completed";
+   this.statusLabel = new Label(this);
+   this.statusLabel.text = "";
    
    // Results list
    this.resultsTreeBox = new TreeBox(this);
@@ -97,6 +98,7 @@ function AutoIntegrateTestProgressDialog(TestRunner) {
    this.sizer.add(this.currentTestLabel);
    this.sizer.add(this.progressBar);
    this.sizer.add(this.progressLabel);
+   this.sizer.add(this.statusLabel);
    this.sizer.addSpacing(10);
    this.sizer.add(this.resultsTreeBox, 100);
    this.sizer.add(this.elapsedTimeLabel);
@@ -140,7 +142,7 @@ AutoIntegrateTestProgressDialog.prototype.startTest = function(testIndex) {
    processEvents();  // Force UI update
 };
 
-AutoIntegrateTestProgressDialog.prototype.completeTest = function(testIndex, success) {
+AutoIntegrateTestProgressDialog.prototype.completeTest = function(testIndex, success, errortxt) {
    var result = this.testResults[testIndex];
    var endTime = new Date();
    var duration = (endTime.getTime() - result.startTime.getTime()) / 1000;
@@ -156,6 +158,13 @@ AutoIntegrateTestProgressDialog.prototype.completeTest = function(testIndex, suc
       result.node.setIcon(1, this.scaledResource(":/icons/ok.png"));
    } else {
       result.node.setIcon(1, this.scaledResource(":/icons/error.png"));
+   }
+
+   if (!success) {
+      if (errortxt == null || errortxt == '') {
+         errortxt = "Unknown error";
+      }
+      this.statusLabel.text = "Last error: " + errortxt;
    }
    
    this.updateProgress();
@@ -248,6 +257,7 @@ var TestRunner = {
    name: "autotest",
    canceled: false,
    lastsuccess: true,
+   cancelFunc: null,
    
    reset: function() {
       this.passed = 0;
@@ -289,8 +299,16 @@ var TestRunner = {
       this.lastsuccess = true;
    },
 
+   set_cancel_callback: function(cancelFunc) {
+      this.cancelFunc = cancelFunc;
+   },
+
    cancel: function() {
+      console.writeln("TestRunner: Cancel requested");
       this.canceled = true;
+      if (this.cancelFunc != null) {
+         this.cancelFunc();
+      }
    },
 
    iscanceled: function() {
@@ -300,6 +318,15 @@ var TestRunner = {
    islastsuccess: function() {
       return this.lastsuccess;
    },
+
+   lasterror: function() {
+      if (this.errors.length == 0) {
+         return "";
+      }
+      let error = this.errors[this.errors.length - 1];
+      return error.error;
+   },
+
 
    endLog: function() {
       let runtime_sec = (Date.now() - this.start_time) / 1000;
