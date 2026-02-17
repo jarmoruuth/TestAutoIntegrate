@@ -6,8 +6,20 @@
  *   2. Check console for results
  */
 
+// All tests
 // run  -a="autotest_tests_default.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
+
+// One test
 // run  -a="autotest_tests1.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
+
+// Calibrate test
+// run  -a="autotest_tests_calibrate.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
+
+// Standalone tests
+// run --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestStandalone.js"
+
+// Start AutoIntegrate script with defaults
+// run -a="do_not_read_settings" -a="do_not_write_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate/AutoIntegrate.js"
 
 #define TEST_AUTO_INTEGRATE
 
@@ -55,14 +67,20 @@ this.loadTestFile = function(testFilePath) {
             continue; // Skip empty lines and comments
          }
          var parts = line.split(",");
-         if (parts.length !== 2) {
+         if (parts.length < 2) {
             console.writeln("Invalid test line (skipping): " + line);
             TestRunner.fail("LoadTestFile", "Invalid test line: " + line);
             continue;
          }
          var scriptPath = parts[0].trim();
          var testName = parts[1].trim();
-         tests.push( { script: scriptPath, name: testName } );
+         // Optional third part for test type
+         if (parts.length >= 3) {
+            var testType = parts[2].trim().toLowerCase();
+         } else {
+            var testType = null
+         }
+         tests.push( { script: scriptPath, name: testName, type: testType } );
       }
       return tests;
 };
@@ -134,7 +152,7 @@ function onCancelRequested() {
       return self.autointegrate.cancel();
 }
 
-function runTestCase(testscript, testname) {
+function runTestCase(testscript, testname, testtype) {
       
       TestRunner.beginLog(testname);
 
@@ -145,6 +163,10 @@ function runTestCase(testscript, testname) {
          self.autointegrate = autointegrate;
 
          autointegrate.test_initialize_new();
+
+         if (testtype == "nopreview") {
+            autointegrate.test_nopreview();
+         }
 
          TestRunner.set_cancel_callback(onCancelRequested);
 
@@ -171,7 +193,7 @@ function runTestCase(testscript, testname) {
          self.autointegrate = null;
 
          gc();
-         
+
       } catch (e) {
          TestRunner.fail(testname, "Exception: " + (e.message || String(e)));
       }
@@ -225,7 +247,7 @@ function runAllTests(testInstance) {
          progressDialog.startTest(i);
 
          console.writeln("Running test: " + test.name + " (" + test.script + ")");
-         runTestCase(test.script, test.name);
+         runTestCase(test.script, test.name, test.type);
 
          progressDialog.completeTest(i, TestRunner.islastsuccess(), TestRunner.lasterror());
 
