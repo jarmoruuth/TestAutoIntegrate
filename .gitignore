@@ -11,3 +11,5 @@ runcmdline/results
 
 *.bat
 *.txt
+
+.claude

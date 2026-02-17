@@ -17,6 +17,12 @@
 // run -a="do_not_read_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate/NarrowbandCombinations.js"
 // run -a="do_not_read_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate/GradientCorrection.js"
 
+// Full processing, all tests
+// run  -a="autotest_tests_default.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
+
+// Full processing, one test
+// run  -a="autotest_tests1.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
+
 #define AUTOINTEGRATE_NO_MAIN
 
 #include "../AutoIntegrate/ImageEnhancements.js"
