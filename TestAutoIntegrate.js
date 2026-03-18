@@ -1,6 +1,6 @@
 /*
  * AutoIntegrate Full Script Test Runner
- * 
+ *
  * Usage:
  *   1. Run this script in PixInsight
  *   2. Check console for results
@@ -21,6 +21,10 @@
 // Start AutoIntegrate script with defaults
 // run -a="do_not_read_settings" -a="do_not_write_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate/AutoIntegrate.js"
 
+#engine v8
+#feature-id    TestAutoIntegrate
+#feature-info  Automated testing for AutoIntegrate full script
+
 #define TEST_AUTO_INTEGRATE
 
 #include "../AutoIntegrate/AutoIntegrate.js"
@@ -31,32 +35,27 @@
 //    AutoIntegrateTestFullProcessing
 // ============================================================================
 
-function AutoIntegrateTestFullProcessing()
+class AutoIntegrateTestFullProcessing extends Object
 {
 
-this.__base__ = Object;
-this.__base__();
+constructor() {
+   super();
 
-var self = this;
-
-var testutils = new AutoIntegrateTestUtils();
-this.testutils = testutils;
-
-var TestRunner = testutils.TestRunner;
-
-var run_results = [];
-
-var test_start_time = new Date();
+   this.testutils = new AutoIntegrateTestUtils();
+   this.run_results = [];
+   this.test_start_time = new Date();
+   this.autointegrate = null;
+}
 
 // ============================================================================
 // Helper functions
 // ============================================================================
 
 // Load a test file. Test file has one text on each line in the format: test-script, test-name
-this.loadTestFile = function(testFilePath) {
+loadTestFile(testFilePath) {
 
       if (!File.exists(testFilePath)) {
-         TestRunner.fail("LoadTestFile", "Test file does not exist: " + testFilePath);
+         this.testutils.fail("LoadTestFile", "Test file does not exist: " + testFilePath);
          throw new Error("Test file does not exist: " + testFilePath);
       }
       let lines = File.readLines(testFilePath);
@@ -69,64 +68,59 @@ this.loadTestFile = function(testFilePath) {
          var parts = line.split(",");
          if (parts.length < 2) {
             console.writeln("Invalid test line (skipping): " + line);
-            TestRunner.fail("LoadTestFile", "Invalid test line: " + line);
+            this.testutils.fail("LoadTestFile", "Invalid test line: " + line);
             continue;
          }
          var scriptPath = parts[0].trim();
          var testName = parts[1].trim();
          // Optional third part for test type
-         if (parts.length >= 3) {
-            var testType = parts[2].trim().toLowerCase();
-         } else {
-            var testType = null
-         }
+         var testType = parts.length >= 3 ? parts[2].trim().toLowerCase() : null;
          tests.push( { script: scriptPath, name: testName, type: testType } );
       }
       return tests;
-};
+}
 
-function openImageWindowFromFile(fileName)
+openImageWindowFromFile(fileName)
 {
       var id = File.extractName(fileName);
       var imageWindows = ImageWindow.open(fileName);
       if (!imageWindows || imageWindows.length == 0) {
-            TestRunner.addError("*** openImageWindowFromFile Error: imageWindows.length: " + imageWindows.length + ", file " + fileName);
+            this.testutils.addError("*** openImageWindowFromFile Error: imageWindows.length: " + imageWindows.length + ", file " + fileName);
             return null;
       }
       var imageWindow = imageWindows[0];
       if (imageWindow == null) {
-            TestRunner.addError("*** openImageWindowFromFile Error: Can't read file: " + fileName);
+            this.testutils.addError("*** openImageWindowFromFile Error: Can't read file: " + fileName);
             return null;
       }
       return imageWindow;
 }
 
-function loadFinalAndReferenceImages()
+loadFinalAndReferenceImages()
 {
-      // Go through run_results and loaf final and reference images for all tests
+      // Go through run_results and load final and reference images for all tests
       console.writeln("Loading final and reference images for all tests...");
-      for (var i = 0; i < run_results.length; i++) {
-         var run = run_results[i];
+      for (var i = 0; i < this.run_results.length; i++) {
+         var run = this.run_results[i];
          if (run.final_image_file != '' && File.exists(run.final_image_file)) {
             let reference_image = File.extractDrive(run.final_image_file) + File.extractDirectory(run.final_image_file) +
                                     "/reference_" + File.extractName(run.final_image_file) + ".xisf";
             if (File.exists(reference_image)) {
                console.writeln("Loading final and reference images for test: " + run.test_name);
                // Check that file date is later than test start time
-               // Get file modification time
                var fileInfo = new FileInfo(run.final_image_file);
                var fileTime = fileInfo.lastModified;
-               if (fileTime < test_start_time) {
-                  TestRunner.addError("Final image file is older than test start time for test: " + run.test_name);
+               if (fileTime < this.test_start_time) {
+                  this.testutils.addError("Final image file is older than test start time for test: " + run.test_name);
                }
-               let final_img = openImageWindowFromFile(run.final_image_file);
+               let final_img = this.openImageWindowFromFile(run.final_image_file);
                if (final_img) {
                   final_img.mainView.id = run.test_name + "_" + File.extractName(run.final_image_file);
                   // Final image on the upper left corner
                   final_img.position = new Point(5, 5);
                   final_img.show();
                }
-               let reference_img = openImageWindowFromFile(reference_image);
+               let reference_img = this.openImageWindowFromFile(reference_image);
                if (reference_img) {
                   reference_img.mainView.id = run.test_name + "_" + File.extractName(reference_image);
                   // Reference image on the right of the final image
@@ -135,11 +129,11 @@ function loadFinalAndReferenceImages()
                }
 
             } else {
-               TestRunner.addError("Reference image not found for test: " + run.test_name);
+               this.testutils.addError("Reference image not found for test: " + run.test_name);
             }
 
          } else {
-            TestRunner.addError("Final image not found for test: " + run.test_name);
+            this.testutils.addError("Final image not found for test: " + run.test_name);
          }
       }
 }
@@ -148,19 +142,15 @@ function loadFinalAndReferenceImages()
 // Detailed Tests
 // ============================================================================
 
-function onCancelRequested() {
-      return self.autointegrate.cancel();
-}
+runTestCase(testscript, testname, testtype) {
 
-function runTestCase(testscript, testname, testtype) {
-      
-      TestRunner.beginLog(testname);
+      this.testutils.beginLog(testname);
 
       console.writeln("Testing " + testname + " ...");
 
       try {
          var autointegrate = new AutoIntegrate();
-         self.autointegrate = autointegrate;
+         this.autointegrate = autointegrate;
 
          autointegrate.test_initialize_new();
 
@@ -168,77 +158,72 @@ function runTestCase(testscript, testname, testtype) {
             autointegrate.test_nopreview();
          }
 
-         TestRunner.set_cancel_callback(onCancelRequested);
+         this.testutils.set_cancel_callback(() => this.autointegrate.cancel());
 
          autointegrate.autointegrate_main(testscript);
 
-         TestRunner.set_cancel_callback(null);
+         this.testutils.set_cancel_callback(null);
 
          var this_run = autointegrate.get_run_results();
          this_run.test_name = testname;
 
-         run_results.push(this_run);
+         this.run_results.push(this_run);
 
-         testutils.parseTestmodeLogForErrors(this_run.testmode_log_name);
+         this.testutils.parseTestmodeLogForErrors(this_run.testmode_log_name);
 
          if (this_run.fatal_error != '') {
-            TestRunner.fail(testname, "Fatal error during processing: " + this_run.fatal_error);
-         } else if (!testutils.parseTestmodeLogForErrors(this_run.testmode_log_name)) {
-            TestRunner.fail(testname, "Errors found in testmode log file " + this_run.testmode_log_name);
+            this.testutils.fail(testname, "Fatal error during processing: " + this_run.fatal_error);
+         } else if (!this.testutils.parseTestmodeLogForErrors(this_run.testmode_log_name)) {
+            this.testutils.fail(testname, "Errors found in testmode log file " + this_run.testmode_log_name);
          } else {
-            TestRunner.pass(testname);
+            this.testutils.pass(testname);
          }
 
          autointegrate = null;
-         self.autointegrate = null;
-
-         gc();
+         this.autointegrate = null;
 
       } catch (e) {
-         TestRunner.fail(testname, "Exception: " + (e.message || String(e)));
+         this.testutils.fail(testname, "Exception: " + (e.message || String(e)));
       }
 
       console.writeln("Finished test: " + testname);
 
-      TestRunner.endLog();
-
-      gc();
+      this.testutils.endLog();
 }
 
 // ============================================================================
 // Run All Tests
 // ============================================================================
 
-function runAllTests(testInstance) {
+runAllTests() {
 
-      var deleteResult = testInstance.testutils.deleteOldLogFiles(testInstance.testutils.testResultsDir, 365);
-      testutils.forceCloseAll();
-      gc();
+      var deleteResult = this.testutils.deleteOldLogFiles(this.testutils.testResultsDir, 365);
+      this.testutils.forceCloseAll();
 
-      TestRunner.reset();
+      this.testutils.reset();
 
-      if (jsArguments.length > 0) {
-            var testFileName = jsArguments[0];
+      if (Runtime.jsArguments.length > 0) {
+            var testFileName = Runtime.jsArguments[0];
       } else {
             var testFileName = "autotest_tests_default.txt";
       }
 
       var tests = this.loadTestFile(this.testutils.testDir + testFileName);
 
-      var testNames = []
+      var testNames = [];
       for (var i = 0; i < tests.length; i++) {
          testNames.push(tests[i].name);
       }
 
-      var progressDialog = new AutoIntegrateTestProgressDialog(TestRunner);
+      var progressDialog = new AutoIntegrateTestProgressDialog(this.testutils);
       progressDialog.initializeTests(testNames);
       progressDialog.show();
-      processEvents();
+      CoreApplication.processEvents();
 
       for (var i = 0; i < tests.length; i++) {
 
-         if (TestRunner.iscanceled()) {
-            TestRunner.fail("RunAllTests", "Test run canceled by user.");
+         if (this.testutils.iscanceled()) {
+            this.testutils.fail("RunAllTests", "Test run canceled by user.");
             break;
          }
 
@@ -247,25 +232,24 @@ function runAllTests(testInstance) {
          progressDialog.startTest(i);
 
          console.writeln("Running test: " + test.name + " (" + test.script + ")");
-         runTestCase(test.script, test.name, test.type);
+         this.runTestCase(test.script, test.name, test.type);
 
-         progressDialog.completeTest(i, TestRunner.islastsuccess(), TestRunner.lasterror());
+         progressDialog.completeTest(i, this.testutils.islastsuccess(), this.testutils.lasterror());
 
-         testutils.forceCloseAll();
-         gc();
+         this.testutils.forceCloseAll();
       }
 
       // Load final and reference images for all tests
-      loadFinalAndReferenceImages();
+      this.loadFinalAndReferenceImages();
 
       // Get summary
       var summary = progressDialog.getSummary();
       console.writeln(format("\n=== Test Summary ==="));
-      console.writeln(format("Total: %d, Passed: %d, Failed: %d", 
+      console.writeln(format("Total: %d, Passed: %d, Failed: %d",
                            summary.total, summary.passed, summary.failed));
       console.writeln(format("Total time: %.2fs", summary.totalTime));
 
-      if (TestRunner.summary()) {
+      if (this.testutils.summary()) {
          console.writeln("All tests passed.");
       } else {
          console.criticalln("Some tests failed. See above for details.");
@@ -280,11 +264,7 @@ function runAllTests(testInstance) {
       progressDialog.execute();
 }
 
-this.runAllTests = runAllTests;
-
 } // AutoIntegrateTestFullProcessing
-
-AutoIntegrateTestFullProcessing.prototype = new Object;
 
 // ============================================================================
 // Main Entry Point
@@ -298,10 +278,9 @@ function main() {
 
    var test = new AutoIntegrateTestFullProcessing();
 
-   test.runAllTests(test);
+   test.runAllTests();
 
    test = null;
-   gc();
 }
 
 main();

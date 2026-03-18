@@ -489,9 +489,17 @@ parseTestmodeLogForErrors(logFilePath)
       }
       if (first_difference != -1) {
             this.addError(logFilePath + ": First difference in log files at line " + first_difference);
+            // Replace slash with windows backslash in file paths for better readability on windows
+            let displayLogFilePath = logFilePath.replaceAll('/', '\\');
+            let displayReferenceLogFilePath = referenceLogFilePath.replaceAll('/', '\\');
+            this.addError("diff " + displayLogFilePath + " " + displayReferenceLogFilePath);
             return false
       } else if (log_lines.length != reference_log_lines.length) {
             this.addError(logFilePath + ": Log files have different number of lines: " + log_lines.length + " vs " + reference_log_lines.length);
+            // Replace slash with windows backslash in file paths for better readability on windows
+            let displayLogFilePath = logFilePath.replaceAll('/', '\\');
+            let displayReferenceLogFilePath = referenceLogFilePath.replaceAll('/', '\\');
+            this.addError("diff " + displayLogFilePath + " " + displayReferenceLogFilePath);
             return false;
       } else {
             // No differences
