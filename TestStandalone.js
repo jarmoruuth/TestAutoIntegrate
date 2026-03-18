@@ -23,6 +23,10 @@
 // Full processing, one test
 // run  -a="autotest_tests1.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
 
+#engine v8
+#feature-id    TestStandalone
+#feature-info  Automated testing for AutoIntegrate standalone tools
+
 #define AUTOINTEGRATE_NO_MAIN
 
 #include "../AutoIntegrate/ImageEnhancements.js"
@@ -37,19 +41,17 @@
 //    AutoIntegrateTestStandalone
 // ============================================================================
 
-function AutoIntegrateTestStandalone()
+class AutoIntegrateTestStandalone extends Object
 {
 
-this.__base__ = Object;
-this.__base__();
+    constructor() {
+        super();
 
-var testutils = new AutoIntegrateTestUtils();
-this.testutils = testutils;
+this.testutils = new AutoIntegrateTestUtils();
 
-var TestRunner = testutils.TestRunner;
-this.TestRunner = TestRunner;
+this.TestRunner = this.testutils;
 
-var autoIntegrateDir = testutils.testRootDir + "/AutoIntegrate/";
+this.autoIntegrateDir = this.testutils.testRootDir + "/AutoIntegrate/";
 
 // ============================================================================
 // Script Definitions
@@ -60,22 +62,22 @@ var autoIntegrateDir = testutils.testRootDir + "/AutoIntegrate/";
  * 
  * Each entry:
  *   name: Display name
- *   dialogClass: Constructor function name for the dialog
+ *   dialogClass: Constructor name for the dialog
  *   includes: Files to include (relative to script path)
  *   constructors: Constructor names that must exist before testing
  */
 
-var Scripts = [
+this.scripts = [
    {
       name: "ImageStretching",
       dialogClass: "AutoIntegrateImageStretchingDialog",
       includes: [
-         autoIntegrateDir + "AutoIntegrateGlobal.js",
-         autoIntegrateDir + "AutoIntegrateUtil.js",
-         autoIntegrateDir + "AutoIntegrateEngine.js",
-         autoIntegrateDir + "AutoIntegrateGUITools.js",
-         autoIntegrateDir + "AutoIntegratePreview.js",
-         autoIntegrateDir + "AutoIntegrateEnhancementsGUI.js",
+         this.autoIntegrateDir + "AutoIntegrateGlobal.js",
+         this.autoIntegrateDir + "AutoIntegrateUtil.js",
+         this.autoIntegrateDir + "AutoIntegrateEngine.js",
+         this.autoIntegrateDir + "AutoIntegrateGUITools.js",
+         this.autoIntegrateDir + "AutoIntegratePreview.js",
+         this.autoIntegrateDir + "AutoIntegrateEnhancementsGUI.js",
       ],
       constructors: [
          "AutoIntegrateGlobal",
@@ -92,12 +94,12 @@ var Scripts = [
       name: "ImageEnhancements",
       dialogClass: "AutoIntegrateImageEnhancementsDialog",
       includes: [
-         autoIntegrateDir + "AutoIntegrateGlobal.js",
-         autoIntegrateDir + "AutoIntegrateUtil.js",
-         autoIntegrateDir + "AutoIntegrateEngine.js",
-         autoIntegrateDir + "AutoIntegrateGUITools.js",
-         autoIntegrateDir + "AutoIntegratePreview.js",
-         autoIntegrateDir + "AutoIntegrateEnhancementsGUI.js",
+         this.autoIntegrateDir + "AutoIntegrateGlobal.js",
+         this.autoIntegrateDir + "AutoIntegrateUtil.js",
+         this.autoIntegrateDir + "AutoIntegrateEngine.js",
+         this.autoIntegrateDir + "AutoIntegrateGUITools.js",
+         this.autoIntegrateDir + "AutoIntegratePreview.js",
+         this.autoIntegrateDir + "AutoIntegrateEnhancementsGUI.js",
       ],
       constructors: [
          "AutoIntegrateGlobal",
@@ -114,11 +116,11 @@ var Scripts = [
       name: "NarrowbandCombinations",
       dialogClass: "AutoIntegrateNarrowbandCombinationsDialog",
       includes: [
-         autoIntegrateDir + "AutoIntegrateGlobal.js",
-         autoIntegrateDir + "AutoIntegrateUtil.js",
-         autoIntegrateDir + "AutoIntegrateEngine.js",
-         autoIntegrateDir + "AutoIntegrateGUITools.js",
-         autoIntegrateDir + "AutoIntegratePreview.js"
+         this.autoIntegrateDir + "AutoIntegrateGlobal.js",
+         this.autoIntegrateDir + "AutoIntegrateUtil.js",
+         this.autoIntegrateDir + "AutoIntegrateEngine.js",
+         this.autoIntegrateDir + "AutoIntegrateGUITools.js",
+         this.autoIntegrateDir + "AutoIntegratePreview.js"
       ],
       constructors: [
          "AutoIntegrateGlobal",
@@ -134,11 +136,11 @@ var Scripts = [
       name: "GradientCorrection",
       dialogClass: "AutoIntegrateGradientCorrectionDialog",
       includes: [
-         autoIntegrateDir + "AutoIntegrateGlobal.js",
-         autoIntegrateDir + "AutoIntegrateUtil.js",
-         autoIntegrateDir + "AutoIntegrateEngine.js",
-         autoIntegrateDir + "AutoIntegrateGUITools.js",
-         autoIntegrateDir + "AutoIntegratePreview.js"
+         this.autoIntegrateDir + "AutoIntegrateGlobal.js",
+         this.autoIntegrateDir + "AutoIntegrateUtil.js",
+         this.autoIntegrateDir + "AutoIntegrateEngine.js",
+         this.autoIntegrateDir + "AutoIntegrateGUITools.js",
+         this.autoIntegrateDir + "AutoIntegratePreview.js"
       ],
       constructors: [
          "AutoIntegrateGlobal",
@@ -154,11 +156,11 @@ var Scripts = [
       name: "SelectiveColor",
       dialogClass: "AutoIntegrateSelectiveColorDialog",
       includes: [
-         autoIntegrateDir + "AutoIntegrateGlobal.js",
-         autoIntegrateDir + "AutoIntegrateUtil.js",
-         autoIntegrateDir + "AutoIntegrateEngine.js",
-         autoIntegrateDir + "AutoIntegrateGUITools.js",
-         autoIntegrateDir + "AutoIntegratePreview.js"
+         this.autoIntegrateDir + "AutoIntegrateGlobal.js",
+         this.autoIntegrateDir + "AutoIntegrateUtil.js",
+         this.autoIntegrateDir + "AutoIntegrateEngine.js",
+         this.autoIntegrateDir + "AutoIntegrateGUITools.js",
+         this.autoIntegrateDir + "AutoIntegratePreview.js"
       ],
       constructors: [
          "AutoIntegrateGlobal",
@@ -172,12 +174,14 @@ var Scripts = [
 
 ];
 
+} // constructor
+
 // ============================================================================
 // Core Test Functions
 // ============================================================================
 
 // Check if a constructor exists
-function constructorExists(name) {
+constructorExists(name) {
    try {
       return eval("typeof " + name + " === 'function'");
    } catch (e) {
@@ -186,7 +190,7 @@ function constructorExists(name) {
 }
 
 // Try to instantiate a dialog
-function tryInstantiate(dialogClass) {
+tryInstantiate(dialogClass) {
    try {
       var dialog = eval("new " + dialogClass + "()");
       return { success: true, dialog: dialog };
@@ -196,28 +200,26 @@ function tryInstantiate(dialogClass) {
 }
 
 // Test a single script
-function testScript(script) {
+testScript(script) {
    // Check if required constructors exist
    if (script.constructors) {
       for (var i = 0; i < script.constructors.length; i++) {
-         if (!constructorExists(script.constructors[i])) {
-            TestRunner.skip(script.name, "Missing: " + script.constructors[i]);
+         if (!this.constructorExists(script.constructors[i])) {
+            this.TestRunner.skip(script.name, "Missing: " + script.constructors[i]);
             return;
          }
       }
    }
    
    // Try to instantiate dialog
-   var result = tryInstantiate(script.dialogClass);
+   var result = this.tryInstantiate(script.dialogClass);
    
    if (result.success) {
-      TestRunner.pass(script.name);
+      this.TestRunner.pass(script.name);
    } else {
-      TestRunner.fail(script.name, result.error);
+      this.TestRunner.fail(script.name, result.error);
    }
    result = null;
-
-   gc();
 }
 
 // ============================================================================
@@ -228,23 +230,23 @@ function testScript(script) {
  * Run tests on all scripts.
  * Assumes scripts are already loaded via #include.
  */
-function runInstantiationTests() {
-      TestRunner.beginLog("InstantiationTests");
+runInstantiationTests() {
+      this.TestRunner.beginLog("InstantiationTests");
 
-      for (var i = 0; i < Scripts.length; i++) {
-         testScript(Scripts[i]);
+      for (var i = 0; i < this.scripts.length; i++) {
+         this.testScript(this.scripts[i]);
       }
-      TestRunner.endLog();
+      this.TestRunner.endLog();
 }
 
 // ============================================================================
 // Detailed Test (checks more than just instantiation)
 // ============================================================================
 
-function TestGradientCorrection() {
+TestGradientCorrection() {
       var testname = "GradientCorrection";
       
-      TestRunner.beginLog(testname);
+      this.TestRunner.beginLog(testname);
 
       console.writeln("Testing Gradient Correction methods...");
 
@@ -253,7 +255,7 @@ function TestGradientCorrection() {
 
          var dialog = new AutoIntegrateGradientCorrectionDialog();
 
-         var image = testutils.testDir + "testimages/TestGradientCorrection.xisf";
+         var image = this.testutils.testDir + "testimages/TestGradientCorrection.xisf";
          var imageWindow = dialog.util.openImageWindowFromFile(image);
          imageWindow.mainView.id = testname;
          imageWindow.show();
@@ -266,20 +268,18 @@ function TestGradientCorrection() {
             dialog.enhancements_gui.enhancementsApplyButtonOnClick();
          }
          dialog = null;
-         TestRunner.pass(testname);
+         this.TestRunner.pass(testname);
       } catch (e) {
-         TestRunner.fail(testname, "Exception: " + (e.message || String(e)));
+         this.TestRunner.fail(testname, "Exception: " + (e.message || String(e)));
       }
 
-      TestRunner.endLog();
-
-      gc();
+      this.TestRunner.endLog();
 }
 
-function TestImageStretching() {
+TestImageStretching() {
       var testname = "ImageStretching";
       
-      TestRunner.beginLog(testname);
+      this.TestRunner.beginLog(testname);
 
       console.writeln("Testing Image Stretching methods...");
 
@@ -288,7 +288,7 @@ function TestImageStretching() {
 
          var dialog = new AutoIntegrateImageStretchingDialog();
 
-         var image = testutils.testDir + "testimages/TestImageStretching.xisf";
+         var image = this.testutils.testDir + "testimages/TestImageStretching.xisf";
          var imageWindow = dialog.util.openImageWindowFromFile(image);
          imageWindow.mainView.id = testname;
          imageWindow.show();
@@ -301,20 +301,18 @@ function TestImageStretching() {
             dialog.enhancements_gui.enhancementsApplyButtonOnClick();
          }
          dialog = null;
-         TestRunner.pass(testname);
+         this.TestRunner.pass(testname);
       } catch (e) {
-         TestRunner.fail(testname, "Exception: " + (e.message || String(e)));
+         this.TestRunner.fail(testname, "Exception: " + (e.message || String(e)));
       }
 
-      TestRunner.endLog();
-
-      gc();
+      this.TestRunner.endLog();
 }
 
-function TestImageEnhancements() {
+TestImageEnhancements() {
       var testname = "ImageEnhancements";
       
-      TestRunner.beginLog(testname);
+      this.TestRunner.beginLog(testname);
 
       console.writeln("Testing Image Enhancements methods...");
 
@@ -326,7 +324,7 @@ function TestImageEnhancements() {
             dialog.global.par.enhancements_clarity
          ];
 
-         var image = testutils.testDir + "testimages/TestImageEnhancements.xisf";
+         var image = this.testutils.testDir + "testimages/TestImageEnhancements.xisf";
          var imageWindow = dialog.util.openImageWindowFromFile(image);
          imageWindow.mainView.id = testname;
          imageWindow.show();
@@ -341,20 +339,18 @@ function TestImageEnhancements() {
             parameter.val = false;
          }
          dialog = null;
-         TestRunner.pass(testname);
+         this.TestRunner.pass(testname);
       } catch (e) {
-         TestRunner.fail(testname, "Exception: " + (e.message || String(e)));
+         this.TestRunner.fail(testname, "Exception: " + (e.message || String(e)));
       }
 
-      TestRunner.endLog();
-
-      gc();
+      this.TestRunner.endLog();
 }
 
-function TestNarrowbandCombinations() {
+TestNarrowbandCombinations() {
       var testname = "NarrowbandCombinations";
       
-      TestRunner.beginLog(testname);
+      this.TestRunner.beginLog(testname);
 
       console.writeln("Testing Narrowband Combinations methods...");
 
@@ -366,7 +362,7 @@ function TestNarrowbandCombinations() {
 
          for (var i = 0; i < channels.length; i++) {
             let channel = channels[i];
-            let image = testutils.testDir + "testimages/TestNarrowbandCombinations_" + channel + ".xisf";
+            let image = this.testutils.testDir + "testimages/TestNarrowbandCombinations_" + channel + ".xisf";
             let imageWindow = dialog.util.openImageWindowFromFile(image);
             imageWindow.mainView.id = testname + "_" + channel;
             imageWindow.show();
@@ -394,20 +390,18 @@ function TestNarrowbandCombinations() {
             dialog.processFinal();
          }
          dialog = null;
-         TestRunner.pass(testname);
+         this.TestRunner.pass(testname);
       } catch (e) {
-         TestRunner.fail(testname, "Exception: " + (e.message || String(e)));
+         this.TestRunner.fail(testname, "Exception: " + (e.message || String(e)));
       }
 
-      TestRunner.endLog();
-
-      gc();
+      this.TestRunner.endLog();
 }
 
-function TestSelectiveColor() {
+TestSelectiveColor() {
       var testname = "SelectiveColor";
       
-      TestRunner.beginLog(testname);
+      this.TestRunner.beginLog(testname);
 
       console.writeln("Testing Selective Color methods...");
 
@@ -416,7 +410,7 @@ function TestSelectiveColor() {
 
          var dialog = new AutoIntegrateSelectiveColorDialog();
 
-         var image = testutils.testDir + "testimages/TestSelectiveColor.xisf";
+         var image = this.testutils.testDir + "testimages/TestSelectiveColor.xisf";
          var imageWindow = dialog.util.openImageWindowFromFile(image);
          imageWindow.mainView.id = testname;
          imageWindow.show();
@@ -430,33 +424,30 @@ function TestSelectiveColor() {
             dialog.enhancements_gui.enhancementsApplyButtonOnClick();
          }
          dialog = null;
-         TestRunner.pass(testname);
+         this.TestRunner.pass(testname);
       } catch (e) {
-         TestRunner.fail(testname, "Exception: " + (e.message || String(e)));
+         this.TestRunner.fail(testname, "Exception: " + (e.message || String(e)));
       }
 
-      TestRunner.endLog();
-
-      gc();
+      this.TestRunner.endLog();
 }
 
 // ============================================================================
 // Run All Tests
 // ============================================================================
 
-function runAllTests(progressDialog) {
-   testutils.forceCloseAll();
-   gc();
+runAllTests(progressDialog) {
+   this.testutils.forceCloseAll();
 
-   TestRunner.reset();
+   this.TestRunner.reset();
 
    var tests = []
-   tests.push({ name:"runInstantiationTests", func:runInstantiationTests });
-   tests.push({ name:"SelectiveColor", func:TestSelectiveColor });
-   tests.push({ name:"GradientCorrection", func:TestGradientCorrection });
-   tests.push({ name:"ImageStretching", func:TestImageStretching });
-   tests.push({ name:"ImageEnhancements", func:TestImageEnhancements });
-   tests.push({ name:"NarrowbandCombinations", func:TestNarrowbandCombinations });
+   tests.push({ name:"runInstantiationTests", func:this.runInstantiationTests });
+   tests.push({ name:"SelectiveColor", func:this.TestSelectiveColor });
+   tests.push({ name:"GradientCorrection", func:this.TestGradientCorrection });
+   tests.push({ name:"ImageStretching", func:this.TestImageStretching });
+   tests.push({ name:"ImageEnhancements", func:this.TestImageEnhancements });
+   tests.push({ name:"NarrowbandCombinations", func:this.TestNarrowbandCombinations });
 
    var testNames = []
    for (var i = 0; i < tests.length; i++) {
@@ -465,11 +456,11 @@ function runAllTests(progressDialog) {
 
    progressDialog.initializeTests(testNames);
    progressDialog.show();
-   processEvents();
+   CoreApplication.processEvents();
 
    for (var i = 0; i < tests.length; i++) {
-      if (TestRunner.iscanceled()) {
-         TestRunner.fail("RunAllTests", "Test run canceled by user.");
+      if (this.TestRunner.iscanceled()) {
+         this.TestRunner.fail("RunAllTests", "Test run canceled by user.");
          break;
       }
 
@@ -481,23 +472,18 @@ function runAllTests(progressDialog) {
       
       progressDialog.startTest(i);
 
-      tests[i].func();
+      tests[i].func.call(this);
       
-      progressDialog.completeTest(i, TestRunner.islastsuccess(), TestRunner.lasterror());
-      processEvents();
-      gc();
+      progressDialog.completeTest(i, this.TestRunner.islastsuccess(), this.TestRunner.lasterror());
+      CoreApplication.processEvents();
    }
 
-   var success = TestRunner.summary();
+   var success = this.TestRunner.summary();
 
    return success;
 }
 
-this.runAllTests = runAllTests;
-
 } // AutoIntegrateTestStandalone
-
-AutoIntegrateTestStandalone.prototype = new Object;
 
 // ============================================================================
 // Main Entry Point
@@ -532,7 +518,6 @@ function main() {
 
    progressDialog = null;
    test = null;
-   gc();
 }
 
 main();
