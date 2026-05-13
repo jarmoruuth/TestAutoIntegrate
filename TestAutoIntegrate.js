@@ -7,19 +7,19 @@
  */
 
 // All tests
-// run  -a="autotest_tests_default.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
+// run  -a="autotest_tests_default.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate-V8/TestAutoIntegrate.js"
 
 // One test
-// run  -a="autotest_tests1.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
+// run  -a="autotest_tests1.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate-V8/TestAutoIntegrate.js"
 
 // Calibrate test
-// run  -a="autotest_tests_calibrate.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
+// run  -a="autotest_tests_calibrate.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate-V8/TestAutoIntegrate.js"
 
 // Standalone tests
-// run --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestStandalone.js"
+// run --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate-V8/TestStandalone.js"
 
 // Start AutoIntegrate script with defaults
-// run -a="do_not_read_settings" -a="do_not_write_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate/AutoIntegrate.js"
+// run -a="do_not_read_settings" -a="do_not_write_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate-V8/AutoIntegrate.js"
 
 #engine v8
 #feature-id    TestAutoIntegrate
@@ -27,7 +27,7 @@
 
 #define TEST_AUTO_INTEGRATE
 
-#include "../AutoIntegrate/AutoIntegrate.js"
+#include "../AutoIntegrate-V8/AutoIntegrate.js"
 
 #include "TestUtils.js"
 
@@ -158,13 +158,13 @@ runTestCase(testscript, testname, testtype) {
             autointegrate.test_nopreview();
          }
 
-         this.testutils.set_cancel_callback(() => this.autointegrate.cancel());
+         this.testutils.set_cancel_callback(() => this.autointegrate.test_cancel());
 
          autointegrate.autointegrate_main(testscript);
 
          this.testutils.set_cancel_callback(null);
 
-         var this_run = autointegrate.get_run_results();
+         var this_run = autointegrate.test_get_run_results();
          this_run.test_name = testname;
 
          this.run_results.push(this_run);
@@ -179,6 +179,7 @@ runTestCase(testscript, testname, testtype) {
             this.testutils.pass(testname);
          }
 
+         autointegrate.test_done();
          autointegrate = null;
          this.autointegrate = null;
 

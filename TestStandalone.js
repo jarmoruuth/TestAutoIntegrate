@@ -9,19 +9,19 @@
  */
 
 // Run this test:
-// run --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestStandalone.js"
+// run --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate-V8/TestStandalone.js"
 
 // Run standalone scripts without tests:
-// run -a="do_not_read_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate/ImageEnhancements.js"
-// run -a="do_not_read_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate/ImageStretching.js"
-// run -a="do_not_read_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate/NarrowbandCombinations.js"
-// run -a="do_not_read_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate/GradientCorrection.js"
+// run -a="do_not_read_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate-V8/ImageEnhancements.js"
+// run -a="do_not_read_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate-V8/ImageStretching.js"
+// run -a="do_not_read_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate-V8/NarrowbandCombinations.js"
+// run -a="do_not_read_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate-V8/GradientCorrection.js"
 
 // Full processing, all tests
-// run  -a="autotest_tests_default.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
+// run  -a="autotest_tests_default.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate-V8/TestAutoIntegrate.js"
 
 // Full processing, one test
-// run  -a="autotest_tests1.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
+// run  -a="autotest_tests1.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate-V8/TestAutoIntegrate.js"
 
 #engine v8
 #feature-id    TestStandalone
@@ -29,11 +29,11 @@
 
 #define AUTOINTEGRATE_NO_MAIN
 
-#include "../AutoIntegrate/ImageEnhancements.js"
-#include "../AutoIntegrate/ImageStretching.js"
-#include "../AutoIntegrate/NarrowbandCombinations.js"
-#include "../AutoIntegrate/GradientCorrection.js"
-#include "../AutoIntegrate/SelectiveColor.js"
+#include "../AutoIntegrate-V8/ImageEnhancements.js"
+#include "../AutoIntegrate-V8/ImageStretching.js"
+#include "../AutoIntegrate-V8/NarrowbandCombinations.js"
+#include "../AutoIntegrate-V8/GradientCorrection.js"
+#include "../AutoIntegrate-V8/SelectiveColor.js"
 
 #include "TestUtils.js"
 
@@ -51,7 +51,7 @@ this.testutils = new AutoIntegrateTestUtils();
 
 this.TestRunner = this.testutils;
 
-this.autoIntegrateDir = this.testutils.testRootDir + "/AutoIntegrate/";
+this.autoIntegrateDir = this.testutils.testRootDir + "/AutoIntegrate-V8/";
 
 // ============================================================================
 // Script Definitions

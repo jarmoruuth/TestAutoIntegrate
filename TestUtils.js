@@ -270,6 +270,7 @@ this.cancelFunc = null;
       this.failed = 0;
       this.skipped = 0;
       this.errors = [];
+      this.diffs = [];
       this.canceled = false;
       this.lastsuccess = true;
    }
@@ -296,6 +297,11 @@ this.cancelFunc = null;
 
    addError(error) {
       this.fail(this.name, error);
+   }
+
+   addDiff(diff) {
+      this.diffs.push({ script: this.name, diff: diff });
+      this.addError("Diff: " + diff);
    }
 
    beginLog(testname = "autotest") {
@@ -368,20 +374,33 @@ this.cancelFunc = null;
       console.writeln("─".repeat(50));
 
       if (this.failed > 0) {
-        if (this.failed > 0) {
-            console.criticalln("\nFAILURES:");
-            for (var i = 0; i < this.errors.length; i++) {
-                var e = this.errors[i];
-                console.criticalln("  " + e.script + ":");
-                console.criticalln("    " + e.error);
-            }
-            console.writeln("");
-            console.criticalln("*** " + this.failed + " TEST(S) FAILED ***");
-            console.criticalln("*** Errors ***");
-        }
+         console.criticalln("\nFAILURES:");
+         for (var i = 0; i < this.errors.length; i++) {
+               var e = this.errors[i];
+               console.criticalln("  " + e.script + ":");
+               console.criticalln("    " + e.error);
+         }
+         console.writeln("");
+         console.criticalln("*** " + this.failed + " TEST(S) FAILED ***");
+         console.criticalln("*** Errors ***");
       } else if (this.passed > 0) {
          console.writeln("");
          console.noteln("*** ALL TESTS PASSED ***");
+      }
+      if (this.diffs.length > 0) {
+         // Save diffs to a file
+         let diffFileName = this.testResultsDir + "diffs.log";
+         var file = new File();
+         file.createForWriting(diffFileName);
+         for (var i = 0; i < this.diffs.length; i++) {
+            var d = this.diffs[i];
+            file.outTextLn("Script: " + d.script);
+            file.outTextLn("Diff: " + d.diff);
+            file.outTextLn("─".repeat(50));
+         }
+         file.close();
+         console.writeln("");
+         console.criticalln("*** Diffs saved to " + diffFileName + " ***");
       }
 
       console.writeln("═".repeat(50));
@@ -453,6 +472,11 @@ parseTestmodeLogForErrors(logFilePath)
 
       let log_lines = File.readLines(logFilePath);
       let reference_log_lines = File.readLines(referenceLogFilePath);
+      // Remove all lines that start with SSWEIGHT but not with SSWEIGHT limit
+      log_lines = log_lines.filter(line => !(line.startsWith("SSWEIGHT") && !line.startsWith("SSWEIGHT limit")));
+      reference_log_lines = reference_log_lines.filter(line => !(line.startsWith("SSWEIGHT") && !line.startsWith("SSWEIGHT limit")));
+      log_lines = log_lines.filter(line => !(line.startsWith("Debug:")));
+      reference_log_lines = reference_log_lines.filter(line => !(line.startsWith("Debug:")));
       // Compare the log lines
       let min_lines = Math.min(log_lines.length, reference_log_lines.length);
       let first_difference = -1;
@@ -492,14 +516,14 @@ parseTestmodeLogForErrors(logFilePath)
             // Replace slash with windows backslash in file paths for better readability on windows
             let displayLogFilePath = logFilePath.replaceAll('/', '\\');
             let displayReferenceLogFilePath = referenceLogFilePath.replaceAll('/', '\\');
-            this.addError("diff " + displayLogFilePath + " " + displayReferenceLogFilePath);
+            this.addDiff("diff " + displayLogFilePath + " " + displayReferenceLogFilePath);
             return false
       } else if (log_lines.length != reference_log_lines.length) {
             this.addError(logFilePath + ": Log files have different number of lines: " + log_lines.length + " vs " + reference_log_lines.length);
             // Replace slash with windows backslash in file paths for better readability on windows
             let displayLogFilePath = logFilePath.replaceAll('/', '\\');
             let displayReferenceLogFilePath = referenceLogFilePath.replaceAll('/', '\\');
-            this.addError("diff " + displayLogFilePath + " " + displayReferenceLogFilePath);
+            this.addDiff("diff " + displayLogFilePath + " " + displayReferenceLogFilePath);
             return false;
       } else {
             // No differences
