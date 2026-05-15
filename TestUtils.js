@@ -369,7 +369,7 @@ this.cancelFunc = null;
       console.writeln("TEST RESULTS");
       console.writeln("═".repeat(50));
       console.writeln(format("  Passed:  %d", this.passed));
-      console.writeln(format("  Failed:  %d", this.failed));
+      console.writeln(format("  Errors:  %d", this.failed));
       console.writeln(format("  Skipped: %d", this.skipped));
       console.writeln("─".repeat(50));
 
@@ -381,7 +381,7 @@ this.cancelFunc = null;
                console.criticalln("    " + e.error);
          }
          console.writeln("");
-         console.criticalln("*** " + this.failed + " TEST(S) FAILED ***");
+         console.criticalln("*** " + this.failed + " TEST ERRORS ***");
          console.criticalln("*** Errors ***");
       } else if (this.passed > 0) {
          console.writeln("");
@@ -392,18 +392,19 @@ this.cancelFunc = null;
          let diffFileName = this.testResultsDir + "diffs.log";
          var file = new File();
          file.createForWriting(diffFileName);
+         file.outTextLn("-".repeat(50));
          for (var i = 0; i < this.diffs.length; i++) {
             var d = this.diffs[i];
             file.outTextLn("Script: " + d.script);
             file.outTextLn("Diff: " + d.diff);
-            file.outTextLn("─".repeat(50));
+            file.outTextLn("-".repeat(50));
          }
          file.close();
          console.writeln("");
          console.criticalln("*** Diffs saved to " + diffFileName + " ***");
       }
 
-      console.writeln("═".repeat(50));
+      console.writeln("=".repeat(50));
       return this.failed === 0;
    }
 
