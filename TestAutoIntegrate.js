@@ -7,19 +7,19 @@
  */
 
 // All tests
-// run  -a="autotest_tests_default.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate-V8/TestAutoIntegrate.js"
+// run  -a="autotest_tests_default.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
 
 // One test
-// run  -a="autotest_tests1.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate-V8/TestAutoIntegrate.js"
+// run  -a="autotest_tests1.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
 
 // Calibrate test
-// run  -a="autotest_tests_calibrate.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate-V8/TestAutoIntegrate.js"
+// run  -a="autotest_tests_calibrate.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
 
 // Standalone tests
-// run --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate-V8/TestStandalone.js"
+// run --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestStandalone.js"
 
 // Start AutoIntegrate script with defaults
-// run -a="do_not_read_settings" -a="do_not_write_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate-V8/AutoIntegrate.js"
+// run -a="do_not_read_settings" -a="do_not_write_settings" --execute-mode=auto "C:/Users/jarmo_000/GitHub/AutoIntegrate/AutoIntegrate.js"
 
 #engine v8
 #feature-id    TestAutoIntegrate
@@ -27,7 +27,7 @@
 
 #define TEST_AUTO_INTEGRATE
 
-#include "../AutoIntegrate-V8/AutoIntegrate.js"
+#include "../AutoIntegrate/AutoIntegrate.js"
 
 #include "TestUtils.js"
 
