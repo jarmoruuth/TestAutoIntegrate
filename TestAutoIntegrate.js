@@ -98,43 +98,47 @@ openImageWindowFromFile(fileName)
 
 loadFinalAndReferenceImages()
 {
-      // Go through run_results and load final and reference images for all tests
-      console.writeln("Loading final and reference images for all tests...");
-      for (var i = 0; i < this.run_results.length; i++) {
-         var run = this.run_results[i];
-         if (run.final_image_file != '' && File.exists(run.final_image_file)) {
-            let reference_image = File.extractDrive(run.final_image_file) + File.extractDirectory(run.final_image_file) +
-                                    "/reference_" + File.extractName(run.final_image_file) + ".xisf";
-            if (File.exists(reference_image)) {
-               console.writeln("Loading final and reference images for test: " + run.test_name);
-               // Check that file date is later than test start time
-               var fileInfo = new FileInfo(run.final_image_file);
-               var fileTime = fileInfo.lastModified;
-               if (fileTime < this.test_start_time) {
-                  this.testutils.addError("Final image file is older than test start time for test: " + run.test_name);
-               }
-               let final_img = this.openImageWindowFromFile(run.final_image_file);
-               if (final_img) {
-                  final_img.mainView.id = run.test_name + "_" + File.extractName(run.final_image_file);
-                  // Final image on the upper left corner
-                  final_img.position = new Point(5, 5);
-                  final_img.show();
-               }
-               let reference_img = this.openImageWindowFromFile(reference_image);
-               if (reference_img) {
-                  reference_img.mainView.id = run.test_name + "_" + File.extractName(reference_image);
-                  // Reference image on the right of the final image
-                  reference_img.position = new Point(final_img.width + 20, 5);
-                  reference_img.show();
+      try {
+         // Go through run_results and load final and reference images for all tests
+         console.writeln("Loading final and reference images for all tests...");
+         for (var i = 0; i < this.run_results.length; i++) {
+            var run = this.run_results[i];
+            if (run.final_image_file != undefined && run.final_image_file && run.final_image_file != '' && File.exists(run.final_image_file)) {
+               let reference_image = File.extractDrive(run.final_image_file) + File.extractDirectory(run.final_image_file) +
+                                       "/reference_" + File.extractName(run.final_image_file) + ".xisf";
+               if (File.exists(reference_image)) {
+                  console.writeln("Loading final and reference images for test: " + run.test_name);
+                  // Check that file date is later than test start time
+                  var fileInfo = new FileInfo(run.final_image_file);
+                  var fileTime = fileInfo.lastModified;
+                  if (fileTime < this.test_start_time) {
+                     this.testutils.addError("Final image file is older than test start time for test: " + run.test_name);
+                  }
+                  let final_img = this.openImageWindowFromFile(run.final_image_file);
+                  if (final_img) {
+                     final_img.mainView.id = run.test_name + "_" + File.extractName(run.final_image_file);
+                     // Final image on the upper left corner
+                     final_img.position = new Point(5, 5);
+                     final_img.show();
+                  }
+                  let reference_img = this.openImageWindowFromFile(reference_image);
+                  if (reference_img) {
+                     reference_img.mainView.id = run.test_name + "_" + File.extractName(reference_image);
+                     // Reference image on the right of the final image
+                     reference_img.position = new Point(final_img.width + 20, 5);
+                     reference_img.show();
+                  }
+
+               } else {
+                  this.testutils.addError("Reference image not found for test: " + run.test_name);
                }
 
             } else {
-               this.testutils.addError("Reference image not found for test: " + run.test_name);
+               this.testutils.addError("Final image not found for test: " + run.test_name);
             }
-
-         } else {
-            this.testutils.addError("Final image not found for test: " + run.test_name);
          }
+      } catch (e) {
+         this.testutils.addError("Error loading final and reference images: " + e.message);
       }
 }
 

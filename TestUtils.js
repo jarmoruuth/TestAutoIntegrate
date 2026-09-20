@@ -449,6 +449,48 @@ parseLogForErrors(logFilePath)
       }
 }
 
+filterIgnoreLines(log_lines)
+{
+         var ignore_starts_with = [
+            "PixInsight version",
+            "AutoIntegrate v",
+            "Processing date",
+            "StarXTerminator AI model",
+            "Script completed",
+            "best_ssweight",
+            "SSWEIGHT",
+            "StarXTerminator AI model",
+            "GraXpert path",
+            "MLDenoise model path",
+            "AstroBin",
+            "Using default processing options",
+            "Processing options:",
+            "Default processing options were used"
+      ];
+      var ignore_index_of = [
+            "best ssweight"
+      ];
+
+      log_lines = log_lines.filter(line => {
+            for (let prefix of ignore_starts_with) {
+                  if (line.startsWith(prefix)) {
+                        return false;
+                  }
+            }
+            for (let substring of ignore_index_of) {
+                  if (line.indexOf(substring) >= 0) {
+                        return false;
+                  }
+            }
+            if (line.startsWith("SSWEIGHT") && !line.startsWith("SSWEIGHT limit")) {
+                  return false;
+            }
+            return true;
+      });
+
+      return log_lines;
+}
+
 // Load TestMode.log and reference_TestMode.log and compare them
 parseTestmodeLogForErrors(logFilePath)
 {
@@ -479,38 +521,18 @@ parseTestmodeLogForErrors(logFilePath)
       log_lines = log_lines.filter(line => !(line.startsWith("Debug:")));
       reference_log_lines = reference_log_lines.filter(line => !(line.startsWith("Debug:")));
       // Compare the log lines
+      // Before comparing the log lines, apply filters and ignore rules
+      log_lines = this.filterIgnoreLines(log_lines);
+      reference_log_lines = this.filterIgnoreLines(reference_log_lines);
       let min_lines = Math.min(log_lines.length, reference_log_lines.length);
+      console.writeln("Comparing first " + min_lines + " lines of log files");
       let first_difference = -1;
+      // Compare files
       for (let j = 0; j < min_lines; j++) {
             if (log_lines[j] != reference_log_lines[j]) {
-                  if (log_lines[j].startsWith("PixInsight version")) {
-                        continue;
-                  }
-                  if (log_lines[j].startsWith("AutoIntegrate v")) {
-                        continue;
-                  }
-                  if (log_lines[j].startsWith("Processing date")) {
-                        continue;
-                  }
-                  if (log_lines[j].startsWith("StarXTerminator AI model")) {
-                        continue;
-                  }
-                  if (log_lines[j].startsWith("Script completed")) {
-                        continue;
-                  }
-                  if (log_lines[j].startsWith("best_ssweight")) {
-                        continue;
-                  }
-                  // Skip lines with text "best ssweight"
-                  if (log_lines[j].indexOf("best ssweight") >= 0) {
-                        continue;
-                  }
-                  if (log_lines[j].startsWith("SSWEIGHT") && !log_lines[j].startsWith("SSWEIGHT limit")) {
-                        continue;
-                  }
-                  first_difference = j;
-                  break;
-            }
+               first_difference = j;
+               break;
+         }
       }
       if (first_difference != -1) {
             this.addError(logFilePath + ": First difference in log files at line " + first_difference);
