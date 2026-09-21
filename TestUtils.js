@@ -253,6 +253,7 @@ this.passed = 0;
 this.failed = 0;
 this.skipped = 0;
 this.errors = [];
+this.diffs = [];
 this.name = "autotest";
 this.canceled = false;
 this.lastsuccess = true;

@@ -173,11 +173,12 @@ runTestCase(testscript, testname, testtype) {
 
          this.run_results.push(this_run);
 
-         this.testutils.parseTestmodeLogForErrors(this_run.testmode_log_name);
+         // Parse the testmode log only once, it adds an error for every problem it finds.
+         var testmode_log_ok = this.testutils.parseTestmodeLogForErrors(this_run.testmode_log_name);
 
          if (this_run.fatal_error != '') {
             this.testutils.fail(testname, "Fatal error during processing: " + this_run.fatal_error);
-         } else if (!this.testutils.parseTestmodeLogForErrors(this_run.testmode_log_name)) {
+         } else if (!testmode_log_ok) {
             this.testutils.fail(testname, "Errors found in testmode log file " + this_run.testmode_log_name);
          } else {
             this.testutils.pass(testname);
