@@ -263,6 +263,7 @@ runAllTests() {
       console.writeln(format("Total: %d, Passed: %d, Failed: %d",
                            summary.total, summary.passed, summary.failed));
       console.writeln(format("Total time: %.2fs", summary.totalTime));
+      this.testutils.progressSummary(summary);
 
       if (this.testutils.summary()) {
          console.writeln("All tests passed.");

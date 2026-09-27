@@ -323,16 +323,49 @@ this.cancelFunc = null;
                         d.getFullYear(), d.getMonth() + 1, d.getDate(),
                         d.getHours(), d.getMinutes(), d.getSeconds()) +
                  name + ": " + txt;
+      this.appendProgressLines([ line ]);
+   }
+
+   appendProgressLines(lines) {
       try {
-         // Open, append and close for every line so the line is on disk even if PixInsight crashes
+         // Open, append and close for every write so the lines are on disk even if PixInsight crashes
          var file = new File();
          file.openOrCreate(this.progressFileName());
          file.seekEnd();
-         file.outTextLn(line);
+         for (var i = 0; i < lines.length; i++) {
+            file.outTextLn(lines[i]);
+         }
          file.close();
       } catch (e) {
-         console.criticalln("progress failed: " + e);
+         console.criticalln("appendProgressLines failed: " + e);
       }
+   }
+
+   // Write test summary from the progress dialog to the end of progress.log
+   progressSummary(summary) {
+      var lines = [];
+      var nameWidth = 10;
+      for (var i = 0; i < summary.results.length; i++) {
+         nameWidth = Math.max(nameWidth, summary.results[i].name.length);
+      }
+      lines.push("");
+      lines.push("=".repeat(nameWidth + 22));
+      lines.push("TEST SUMMARY");
+      lines.push("=".repeat(nameWidth + 22));
+      lines.push("Test".padEnd(nameWidth) + "  Status  " + "Time (s)".padStart(10));
+      lines.push("-".repeat(nameWidth + 22));
+      for (var i = 0; i < summary.results.length; i++) {
+         var r = summary.results[i];
+         var status = r.status == "passed" ? "PASS" : r.status == "failed" ? "FAIL" : "NOT RUN";
+         var time = r.duration != undefined ? r.duration.toFixed(2) : "-";
+         lines.push(r.name.padEnd(nameWidth) + "  " + status.padEnd(7) + " " + time.padStart(10));
+      }
+      lines.push("-".repeat(nameWidth + 22));
+      lines.push(format("Total: %d, Passed: %d, Failed: %d, Not run: %d",
+                        summary.total, summary.passed, summary.failed,
+                        summary.total - summary.passed - summary.failed));
+      lines.push(format("Total time: %.2fs", summary.totalTime));
+      this.appendProgressLines(lines);
    }
 
    addDiff(diff) {
