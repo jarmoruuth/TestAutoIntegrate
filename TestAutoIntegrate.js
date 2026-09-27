@@ -12,6 +12,9 @@
 // One test
 // run  -a="autotest_tests1.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
 
+// Show final and reference images side by side in a single image, add argument side_by_side
+// run  -a="autotest_tests_default.txt" -a="side_by_side" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
+
 // Calibrate test
 // run  -a="autotest_tests_calibrate.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
 
@@ -45,6 +48,7 @@ constructor() {
    this.run_results = [];
    this.test_start_time = new Date();
    this.autointegrate = null;
+   this.side_by_side = false;    // show final and reference images combined into one image
 }
 
 // ============================================================================
@@ -96,6 +100,54 @@ openImageWindowFromFile(fileName)
       return imageWindow;
 }
 
+// Copy source image into target image at point. A grayscale source is copied
+// to every channel of a color target.
+copyImageAt(target, source, point)
+{
+      if (source.numberOfChannels == 1 && target.numberOfChannels > 1) {
+         for (var c = 0; c < target.numberOfChannels; c++) {
+            target.apply(source, ImageOp.Mov, point, c);
+         }
+      } else {
+         target.apply(source, ImageOp.Mov, point, 0);
+      }
+}
+
+// Combine final (left) and reference (right) images into a single new image
+// so there is only one window to check and close. Original windows are closed.
+// Returns false if combining failed, then the original windows are kept.
+showSideBySide(final_img, reference_img, id)
+{
+      var combined = null;
+      try {
+         var fimg = final_img.mainView.image;
+         var rimg = reference_img.mainView.image;
+         var gap = 20;
+         var channels = Math.max(fimg.numberOfChannels, rimg.numberOfChannels);
+         var width = fimg.width + gap + rimg.width;
+         var height = Math.max(fimg.height, rimg.height);
+
+         combined = new ImageWindow(width, height, channels, 32, true, channels > 1, id);
+         var view = combined.mainView;
+         view.beginProcess(UndoFlag.NoSwapFile);
+         view.image.fill(0.5);   // gray gap and borders if image sizes differ
+         this.copyImageAt(view.image, fimg, new Point(0, 0));
+         this.copyImageAt(view.image, rimg, new Point(fimg.width + gap, 0));
+         view.endProcess();
+      } catch (e) {
+         console.warningln("Could not combine final and reference images for " + id + ", showing them separately: " + e);
+         if (combined) {
+            combined.forceClose();
+         }
+         return false;
+      }
+      final_img.forceClose();
+      reference_img.forceClose();
+      combined.position = new Point(5, 5);
+      combined.show();
+      return true;
+}
+
 loadFinalAndReferenceImages()
 {
       try {
@@ -117,15 +169,24 @@ loadFinalAndReferenceImages()
                   let final_img = this.openImageWindowFromFile(run.final_image_file);
                   if (final_img) {
                      final_img.mainView.id = run.test_name + "_" + File.extractName(run.final_image_file);
-                     // Final image on the upper left corner
-                     final_img.position = new Point(5, 5);
-                     final_img.show();
                   }
                   let reference_img = this.openImageWindowFromFile(reference_image);
                   if (reference_img) {
                      reference_img.mainView.id = run.test_name + "_" + File.extractName(reference_image);
+                  }
+                  if (this.side_by_side && final_img && reference_img
+                      && this.showSideBySide(final_img, reference_img, run.test_name + "_final_vs_reference"))
+                  {
+                     continue;
+                  }
+                  if (final_img) {
+                     // Final image on the upper left corner
+                     final_img.position = new Point(5, 5);
+                     final_img.show();
+                  }
+                  if (reference_img) {
                      // Reference image on the right of the final image
-                     reference_img.position = new Point(final_img.width + 20, 5);
+                     reference_img.position = new Point(final_img ? final_img.width + 20 : 5, 5);
                      reference_img.show();
                   }
 
@@ -213,10 +274,13 @@ runAllTests() {
       this.testutils.reset();
       this.testutils.startProgress();
 
-      if (Runtime.jsArguments.length > 0) {
-            var testFileName = Runtime.jsArguments[0];
-      } else {
-            var testFileName = "autotest_tests_default.txt";
+      var testFileName = "autotest_tests_default.txt";
+      for (var i = 0; i < Runtime.jsArguments.length; i++) {
+            if (Runtime.jsArguments[i] == "side_by_side") {
+                  this.side_by_side = true;
+            } else {
+                  testFileName = Runtime.jsArguments[i];
+            }
       }
 
       var tests = this.loadTestFile(this.testutils.testDir + testFileName);
