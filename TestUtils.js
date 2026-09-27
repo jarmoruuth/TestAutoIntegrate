@@ -327,17 +327,29 @@ this.cancelFunc = null;
    }
 
    appendProgressLines(lines) {
-      try {
-         // Open, append and close for every write so the lines are on disk even if PixInsight crashes
+      // Open, append and close for every write so the lines are on disk even if PixInsight crashes.
+      // Some other process, like a virus scanner or an editor, may lock the file briefly, so retry.
+      var maxTries = 5;
+      for (var attempt = 1; attempt <= maxTries; attempt++) {
          var file = new File();
-         file.openOrCreate(this.progressFileName());
-         file.seekEnd();
-         for (var i = 0; i < lines.length; i++) {
-            file.outTextLn(lines[i]);
+         try {
+            file.openOrCreate(this.progressFileName());
+            file.seekEnd();
+            for (var i = 0; i < lines.length; i++) {
+               file.outTextLn(lines[i]);
+            }
+            file.close();
+            return;
+         } catch (e) {
+            try { file.close(); } catch (e2) {}
+            if (attempt == maxTries) {
+               // Do not print "Error:", losing a progress line should not fail a test
+               console.warningln("Could not write to progress.log after " + maxTries + " tries: " +
+                                 String(e).replace(/Error:/g, "error"));
+               return;
+            }
+            try { msleep(100 * attempt); } catch (e3) {}
          }
-         file.close();
-      } catch (e) {
-         console.criticalln("appendProgressLines failed: " + e);
       }
    }
 
