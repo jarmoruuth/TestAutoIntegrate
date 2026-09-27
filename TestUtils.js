@@ -442,6 +442,10 @@ parseLogForErrors(logFilePath)
                      // This is a known error that can be ignored
                      continue;
                }
+               if (line.indexOf("RANSAC: Unable to find a valid set of star pair matches.") >= 0) {
+                     // ImageSolver retries with different settings, a real failure gives a different error
+                     continue;
+               }
                errorIndex += error_txt.length ; // Skip 'Error:'
                if (line.indexOf("FileDataCache::Load(): Corrupted cache data") >= 0) {
                      this.addError("Error in log: " + line.substring(errorIndex) +
