@@ -300,6 +300,41 @@ this.cancelFunc = null;
       this.fail(this.name, error);
    }
 
+   // Progress log is written immediately so we can see where a test run was
+   // if PixInsight crashes. It has a fixed name so it is not mixed with test logs.
+   progressFileName() {
+      return this.testResultsDir + "progress.log";
+   }
+
+   startProgress() {
+      try {
+         var file = new File();
+         file.createForWriting(this.progressFileName());
+         file.close();
+      } catch (e) {
+         console.criticalln("startProgress failed: " + e);
+      }
+      this.progress("Test run started", "autotest");
+   }
+
+   progress(txt, name = this.name) {
+      let d = new Date;
+      let line = format("[%04d-%02d-%02d %02d:%02d:%02d] ",
+                        d.getFullYear(), d.getMonth() + 1, d.getDate(),
+                        d.getHours(), d.getMinutes(), d.getSeconds()) +
+                 name + ": " + txt;
+      try {
+         // Open, append and close for every line so the line is on disk even if PixInsight crashes
+         var file = new File();
+         file.openOrCreate(this.progressFileName());
+         file.seekEnd();
+         file.outTextLn(line);
+         file.close();
+      } catch (e) {
+         console.criticalln("progress failed: " + e);
+      }
+   }
+
    addDiff(diff) {
       this.diffs.push({ script: this.name, diff: diff });
       this.addError("Diff: " + diff);

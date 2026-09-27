@@ -149,6 +149,7 @@ loadFinalAndReferenceImages()
 runTestCase(testscript, testname, testtype) {
 
       this.testutils.beginLog(testname);
+      this.testutils.progress("Test begin, script " + testscript);
 
       console.writeln("Testing " + testname + " ...");
 
@@ -157,6 +158,7 @@ runTestCase(testscript, testname, testtype) {
          this.autointegrate = autointegrate;
 
          autointegrate.test_initialize_new();
+         autointegrate.test_set_progress_callback((txt) => this.testutils.progress(txt));
 
          if (testtype == "nopreview") {
             autointegrate.test_nopreview();
@@ -184,6 +186,7 @@ runTestCase(testscript, testname, testtype) {
             this.testutils.pass(testname);
          }
 
+         autointegrate.test_set_progress_callback(null);
          autointegrate.test_done();
          autointegrate = null;
          this.autointegrate = null;
@@ -195,6 +198,7 @@ runTestCase(testscript, testname, testtype) {
       console.writeln("Finished test: " + testname);
 
       this.testutils.endLog();
+      this.testutils.progress("Test end, " + (this.testutils.islastsuccess() ? "PASS" : "FAIL"));
 }
 
 // ============================================================================
@@ -207,6 +211,7 @@ runAllTests() {
       this.testutils.forceCloseAll();
 
       this.testutils.reset();
+      this.testutils.startProgress();
 
       if (Runtime.jsArguments.length > 0) {
             var testFileName = Runtime.jsArguments[0];
@@ -245,8 +250,12 @@ runAllTests() {
          this.testutils.forceCloseAll();
       }
 
+      this.testutils.progress("All tests done, loading final and reference images", "autotest");
+
       // Load final and reference images for all tests
       this.loadFinalAndReferenceImages();
+
+      this.testutils.progress("Test run finished", "autotest");
 
       // Get summary
       var summary = progressDialog.getSummary();
