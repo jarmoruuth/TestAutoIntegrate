@@ -388,12 +388,22 @@ this.cancelFunc = null;
          console.writeln("");
          console.noteln("*** ALL TESTS PASSED ***");
       }
-      if (this.diffs.length > 0) {
-         // Save diffs to a file
+      if (this.errors.length > 0 || this.diffs.length > 0) {
+         // Save errors and diffs to a file
          let diffFileName = this.testResultsDir + "diffs.log";
          var file = new File();
          file.createForWriting(diffFileName);
          file.outTextLn("-".repeat(50));
+         for (var i = 0; i < this.errors.length; i++) {
+            var e = this.errors[i];
+            if (e.error.startsWith("Diff: ")) {
+               // Diffs are written below
+               continue;
+            }
+            file.outTextLn("Script: " + e.script);
+            file.outTextLn("Error: " + e.error);
+            file.outTextLn("-".repeat(50));
+         }
          for (var i = 0; i < this.diffs.length; i++) {
             var d = this.diffs[i];
             file.outTextLn("Script: " + d.script);
@@ -402,7 +412,7 @@ this.cancelFunc = null;
          }
          file.close();
          console.writeln("");
-         console.criticalln("*** Diffs saved to " + diffFileName + " ***");
+         console.criticalln("*** Errors and diffs saved to " + diffFileName + " ***");
       }
 
       console.writeln("=".repeat(50));
