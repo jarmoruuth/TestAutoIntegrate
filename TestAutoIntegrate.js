@@ -15,6 +15,12 @@
 // Show final and reference images side by side in a single image, add argument side_by_side
 // run  -a="autotest_tests_default.txt" -a="side_by_side" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
 
+// Run tests that have no reference images or reference test mode logs, check only
+// processing errors, add argument no_reference. Argument max_lights=<number> uses at most
+// that many light files per filter to make runs faster. Argument force_auto_stretching uses
+// Auto image stretching even if the setup file has an explicitly selected stretching method.
+// run  -a="autotest_skyanalysis.txt" -a="no_reference" -a="max_lights=10" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
+
 // Calibrate test
 // run  -a="autotest_tests_calibrate.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
 
@@ -49,6 +55,9 @@ constructor() {
    this.test_start_time = new Date();
    this.autointegrate = null;
    this.side_by_side = false;    // show final and reference images combined into one image
+   this.no_reference = false;    // no reference images or logs, check only processing errors
+   this.max_lights = 0;          // if > 0, use at most this many light files per filter
+   this.force_auto_stretching = false; // use Auto image stretching even if explicitly selected
 }
 
 // ============================================================================
@@ -56,6 +65,8 @@ constructor() {
 // ============================================================================
 
 // Load a test file. Test file has one text on each line in the format: test-script, test-name
+// If test-name is missing, the name of the directory of the test script is used, for example
+// D:\Telescopes\RCW55\AutoSetup.json gets name RCW55.
 loadTestFile(testFilePath) {
 
       if (!File.exists(testFilePath)) {
@@ -70,13 +81,19 @@ loadTestFile(testFilePath) {
             continue; // Skip empty lines and comments
          }
          var parts = line.split(",");
-         if (parts.length < 2) {
+         // Accept Windows paths with backslashes
+         var scriptPath = parts[0].trim().replaceAll('\\', '/');
+         var testName = parts.length >= 2 ? parts[1].trim() : '';
+         if (testName == '') {
+            // Use directory name of the test script as test name
+            var dirs = scriptPath.split('/');
+            testName = dirs.length >= 2 ? dirs[dirs.length - 2] : '';
+         }
+         if (scriptPath == '' || testName == '') {
             console.writeln("Invalid test line (skipping): " + line);
             this.testutils.fail("LoadTestFile", "Invalid test line: " + line);
             continue;
          }
-         var scriptPath = parts[0].trim();
-         var testName = parts[1].trim();
          // Optional third part for test type
          var testType = parts.length >= 3 ? parts[2].trim().toLowerCase() : null;
          tests.push( { script: scriptPath, name: testName, type: testType } );
@@ -203,6 +220,34 @@ loadFinalAndReferenceImages()
       }
 }
 
+// Load final images for all tests when there are no reference images,
+// for a quick visual check.
+loadFinalImages()
+{
+      try {
+         console.writeln("Loading final images for all tests...");
+         for (var i = 0; i < this.run_results.length; i++) {
+            var run = this.run_results[i];
+            if (run.final_image_file != undefined && run.final_image_file && run.final_image_file != '' && File.exists(run.final_image_file)) {
+               console.writeln("Loading final image for test: " + run.test_name);
+               let final_img = this.openImageWindowFromFile(run.final_image_file);
+               if (final_img) {
+                  // Test names from directory names can have characters that are not valid in view ids
+                  var id = (run.test_name + "_" + File.extractName(run.final_image_file)).replace(/[^A-Za-z0-9_]/g, "_");
+                  if (/^[0-9]/.test(id)) {
+                     id = "_" + id;
+                  }
+                  final_img.mainView.id = id;
+                  final_img.position = new Point(5, 5);
+                  final_img.show();
+               }
+            }
+         }
+      } catch (e) {
+         this.testutils.addError("Error loading final images: " + e.message);
+      }
+}
+
 // ============================================================================
 // Detailed Tests
 // ============================================================================
@@ -224,6 +269,12 @@ runTestCase(testscript, testname, testtype) {
          if (testtype == "nopreview") {
             autointegrate.test_nopreview();
          }
+         if (this.max_lights > 0) {
+            autointegrate.test_set_max_lights(this.max_lights);
+         }
+         if (this.force_auto_stretching) {
+            autointegrate.test_set_force_auto_stretching();
+         }
 
          this.testutils.set_cancel_callback(() => this.autointegrate.test_cancel());
 
@@ -236,11 +287,20 @@ runTestCase(testscript, testname, testtype) {
 
          this.run_results.push(this_run);
 
-         // Parse the testmode log only once, it adds an error for every problem it finds.
-         var testmode_log_ok = this.testutils.parseTestmodeLogForErrors(this_run.testmode_log_name);
+         if (this.no_reference) {
+            // No reference log to compare, check only processing errors
+            var testmode_log_ok = true;
+         } else {
+            // Parse the testmode log only once, it adds an error for every problem it finds.
+            var testmode_log_ok = this.testutils.parseTestmodeLogForErrors(this_run.testmode_log_name);
+         }
 
          if (this_run.fatal_error != '') {
             this.testutils.fail(testname, "Fatal error during processing: " + this_run.fatal_error);
+         } else if (this.no_reference && this_run.processing_errors != '') {
+            this.testutils.fail(testname, "Processing errors: " + this_run.processing_errors);
+         } else if (this.no_reference && (this_run.final_image_file == '' || !File.exists(this_run.final_image_file))) {
+            this.testutils.fail(testname, "Final image not found");
          } else if (!testmode_log_ok) {
             this.testutils.fail(testname, "Errors found in testmode log file " + this_run.testmode_log_name);
          } else {
@@ -278,6 +338,15 @@ runAllTests() {
       for (var i = 0; i < Runtime.jsArguments.length; i++) {
             if (Runtime.jsArguments[i] == "side_by_side") {
                   this.side_by_side = true;
+            } else if (Runtime.jsArguments[i] == "no_reference") {
+                  this.no_reference = true;
+            } else if (Runtime.jsArguments[i] == "force_auto_stretching") {
+                  this.force_auto_stretching = true;
+            } else if (Runtime.jsArguments[i].startsWith("max_lights=")) {
+                  this.max_lights = parseInt(Runtime.jsArguments[i].substring("max_lights=".length));
+                  if (isNaN(this.max_lights) || this.max_lights < 0) {
+                        throw new Error("Invalid argument " + Runtime.jsArguments[i]);
+                  }
             } else {
                   testFileName = Runtime.jsArguments[i];
             }
@@ -314,10 +383,17 @@ runAllTests() {
          this.testutils.forceCloseAll();
       }
 
-      this.testutils.progress("All tests done, loading final and reference images", "autotest");
+      if (this.no_reference) {
+         this.testutils.progress("All tests done, loading final images", "autotest");
 
-      // Load final and reference images for all tests
-      this.loadFinalAndReferenceImages();
+         // Load final images for all tests for a visual check
+         this.loadFinalImages();
+      } else {
+         this.testutils.progress("All tests done, loading final and reference images", "autotest");
+
+         // Load final and reference images for all tests
+         this.loadFinalAndReferenceImages();
+      }
 
       this.testutils.progress("Test run finished", "autotest");
 
