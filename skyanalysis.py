@@ -7,6 +7,8 @@ Usage:
 Arguments can be TestAutoIntegrate test lists or log files. For a test list the latest
 log in the results directory is used for each test. Test name is the second part of a
 test list line, or the directory name of the setup file if the name is missing.
+Comment lines just before a test line, for example "# Not good: <test>", go to the
+comment column. Commented out test lines and lines before a blank line are skipped.
 
 Output is one row per analysis, an LRGB test can have several rows, for example for
 luminance and RGB images. Column role is decision for the analysis that selected the
@@ -40,7 +42,7 @@ MAX_ANALYSIS_LINES = 15
 
 # Fixed column order, columns from fraction lists are added after the matching column
 COLUMNS = [
-    "test", "image", "role", "note",
+    "test", "image", "role", "comment", "note",
     "decision",
     "contrast", "contrast_limit", "contrast_select",
     "selected_by", "selected",
@@ -157,12 +159,26 @@ def parse_log(log_path, test_name, columns):
 
 
 def load_test_list(path):
-    """Return test names from a TestAutoIntegrate test list."""
-    names = []
+    """Return (test name, comment) pairs from a TestAutoIntegrate test list.
+
+    Comment is the text of comment lines just before the test line, for example
+    "# Not good: <test>". Commented out test lines and blank lines are not comments.
+    """
+    tests = []
+    comments = []
     with open(path, encoding="utf-8", errors="replace") as f:
         for line in f:
             line = line.strip()
-            if line == "" or line.startswith("#"):
+            if line == "":
+                comments = []
+                continue
+            if line.startswith("#"):
+                text = line.lstrip("#").strip()
+                if text.lower().endswith(".json") or ".json," in text.lower():
+                    # Commented out test line
+                    comments = []
+                elif text != "":
+                    comments.append(text)
                 continue
             parts = line.split(",")
             script = parts[0].strip().replace("\\", "/")
@@ -171,8 +187,9 @@ def load_test_list(path):
                 dirs = script.split("/")
                 name = dirs[-2] if len(dirs) >= 2 else ""
             if name != "":
-                names.append(name)
-    return names
+                tests.append((name, " / ".join(comments)))
+            comments = []
+    return tests
 
 
 def latest_log(test_name):
@@ -213,19 +230,21 @@ def main():
             print("File not found: " + inp)
             return 1
         if inp.lower().endswith(".txt"):
-            tests = [(name, latest_log(name)) for name in load_test_list(inp)]
+            tests = [(name, comment, latest_log(name)) for name, comment in load_test_list(inp)]
         else:
-            tests = [(test_name_from_log(inp), inp)]
-        for name, log in tests:
+            tests = [(test_name_from_log(inp), "", inp)]
+        for name, comment, log in tests:
             if log is None:
                 print("No log for " + name)
-                rows.append({"test": name, "note": "no log"})
-                continue
-            print(log)
-            log_rows = parse_log(log, name, columns)
-            if not log_rows:
-                print("  no sky analysis in log")
-                rows.append({"test": name, "note": "no analysis", "log": os.path.basename(log)})
+                log_rows = [{"test": name, "note": "no log"}]
+            else:
+                print(log)
+                log_rows = parse_log(log, name, columns)
+                if not log_rows:
+                    print("  no sky analysis in log")
+                    log_rows = [{"test": name, "note": "no analysis", "log": os.path.basename(log)}]
+            for r in log_rows:
+                r["comment"] = comment
             rows.extend(log_rows)
 
     if args.output:
