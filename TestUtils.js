@@ -162,11 +162,41 @@ class AutoIntegrateTestProgressDialog extends Dialog
          if (errortxt == null || errortxt == '') {
             errortxt = "Unknown error";
          }
-         this.statusLabel.text = "Last error: " + errortxt;
+         this.statusLabel.text = this.wrapText("Last error: " + errortxt, 100, 10);
       }
 
       this.updateProgress();
       CoreApplication.processEvents();  // Force UI update
+   }
+
+   // Split text into lines of at most maxLength characters. Lines are split at
+   // spaces if possible, then at path separators, otherwise at maxLength.
+   // At most maxLines lines are returned, extra text is replaced with "...".
+   wrapText(text, maxLength, maxLines) {
+      var lines = [];
+      var rest = String(text).replace(/\s+/g, " ").trim();
+      while (rest.length > maxLength) {
+         var pos = rest.lastIndexOf(" ", maxLength);
+         if (pos > maxLength / 2) {
+            lines.push(rest.substring(0, pos));
+            rest = rest.substring(pos + 1);
+            continue;
+         }
+         pos = Math.max(rest.lastIndexOf("/", maxLength - 1), rest.lastIndexOf("\\", maxLength - 1));
+         if (pos <= maxLength / 2) {
+            pos = maxLength - 1;
+         }
+         lines.push(rest.substring(0, pos + 1));
+         rest = rest.substring(pos + 1);
+      }
+      if (rest.length > 0) {
+         lines.push(rest);
+      }
+      if (lines.length > maxLines) {
+         lines = lines.slice(0, maxLines);
+         lines[maxLines - 1] += " ...";
+      }
+      return lines.join("\n");
    }
 
    updateProgress() {
