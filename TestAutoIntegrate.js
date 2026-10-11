@@ -19,6 +19,8 @@
 // processing errors, add argument no_reference. Argument max_lights=<number> uses at most
 // that many light files per filter to make runs faster. Argument force_auto_stretching uses
 // Auto image stretching even if the setup file has an explicitly selected stretching method.
+// Argument delete_intermediate_files deletes files in AutoOutput and AutoCalibrated directories
+// after each test to save disk space, final images and logs in AutoProcessed are kept.
 // run  -a="autotest_skyanalysis.txt" -a="no_reference" -a="max_lights=10" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
 
 // Calibrate test
@@ -58,6 +60,7 @@ constructor() {
    this.no_reference = false;    // no reference images or logs, check only processing errors
    this.max_lights = 0;          // if > 0, use at most this many light files per filter
    this.force_auto_stretching = false; // use Auto image stretching even if explicitly selected
+   this.delete_intermediate_files = false;  // delete files in AutoOutput and AutoCalibrated after each test
 }
 
 // ============================================================================
@@ -248,6 +251,46 @@ loadFinalImages()
       }
 }
 
+// Delete files in intermediate file directories after a test to save disk space.
+// Only directories named AutoOutput or AutoCalibrated are cleaned, subdirectories
+// are not touched.
+deleteIntermediateFiles(run)
+{
+      if (run == null || run.intermediate_dirs == undefined) {
+         return;
+      }
+      for (var i = 0; i < run.intermediate_dirs.length; i++) {
+         var dir = run.intermediate_dirs[i].replace(/[\\/]+$/, "");
+         var name = File.extractName(dir);
+         if ((name != "AutoOutput" && name != "AutoCalibrated") || !File.directoryExists(dir)) {
+            continue;
+         }
+         var deletedCount = 0;
+         var errorCount = 0;
+         var fileNames = [];
+         var fileFind = new FileFind();
+         if (fileFind.begin(dir + "/*")) {
+            do {
+               if (!fileFind.isDirectory) {
+                  fileNames.push(dir + "/" + fileFind.name);
+               }
+            } while (fileFind.next());
+            fileFind.end();
+         }
+         for (var j = 0; j < fileNames.length; j++) {
+            try {
+               File.remove(fileNames[j]);
+               deletedCount++;
+            } catch (e) {
+               console.warningln("Failed to delete: " + fileNames[j] + " - " + e);
+               errorCount++;
+            }
+         }
+         console.writeln("Deleted " + deletedCount + " files from " + dir +
+                         (errorCount > 0 ? ", " + errorCount + " errors" : ""));
+      }
+}
+
 // ============================================================================
 // Detailed Tests
 // ============================================================================
@@ -309,6 +352,11 @@ runTestCase(testscript, testname, testtype) {
 
          autointegrate.test_set_progress_callback(null);
          autointegrate.test_done();
+
+         if (this.delete_intermediate_files) {
+            this.testutils.forceCloseAll();
+            this.deleteIntermediateFiles(this_run);
+         }
          autointegrate = null;
          this.autointegrate = null;
 
@@ -342,6 +390,8 @@ runAllTests() {
                   this.no_reference = true;
             } else if (Runtime.jsArguments[i] == "force_auto_stretching") {
                   this.force_auto_stretching = true;
+            } else if (Runtime.jsArguments[i] == "delete_intermediate_files") {
+                  this.delete_intermediate_files = true;
             } else if (Runtime.jsArguments[i].startsWith("max_lights=")) {
                   this.max_lights = parseInt(Runtime.jsArguments[i].substring("max_lights=".length));
                   if (isNaN(this.max_lights) || this.max_lights < 0) {
