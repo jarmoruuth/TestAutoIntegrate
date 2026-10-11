@@ -9,7 +9,10 @@ log in the results directory is used for each test. Test name is the second part
 test list line, or the directory name of the setup file if the name is missing.
 
 Output is one row per analysis, an LRGB test can have several rows, for example for
-luminance and RGB images. Tests without a log or without an analysis get a row with
+luminance and RGB images. Column role is decision for the analysis that selected the
+stretching method, and info for analyses that are only logged, for example RGB after
+luminance in LRGB, or all analyses when sky analysis is not used for the selection.
+Tests without a log or without an analysis get a row with
 a note so missing tests are visible. Default output file is skyanalysis_<input>.csv,
 or skyanalysis_combined.csv for several inputs.
 
@@ -37,7 +40,7 @@ MAX_ANALYSIS_LINES = 15
 
 # Fixed column order, columns from fraction lists are added after the matching column
 COLUMNS = [
-    "test", "image", "note",
+    "test", "image", "role", "note",
     "decision",
     "contrast", "contrast_limit", "contrast_select",
     "selected_by", "selected",
@@ -80,7 +83,6 @@ LINE_RES = [
 UNRELIABLE_RE = re.compile(r"^  image statistics are not reliable")
 MODEL_FAILED_RE = re.compile(r"^  sky model: fit failed")
 KEEPING_RE = re.compile(r"^  keeping (?P<decision>.+) selected earlier by sky analysis")
-ANALYSIS_FAILED_RE = re.compile(r"^  sky analysis failed, using (?P<decision>.+)$")
 DECISION_RE = re.compile(r"^Auto image stretching selected by sky analysis on (?P<image>\S+): (?P<decision>.+)$")
 
 # Fraction list items like "0.5 noise 24%" or "2 scatter 81%"
@@ -121,6 +123,7 @@ def parse_log(log_path, test_name, columns):
                 for r in reversed(rows):
                     if r["image"] == m.group("image"):
                         r["decision"] = m.group("decision")
+                        r["role"] = "decision"
                         break
                 continue
 
@@ -143,9 +146,13 @@ def parse_log(log_path, test_name, columns):
                 elif MODEL_FAILED_RE.match(line):
                     row["model_failed"] = "true"
                 else:
-                    m = KEEPING_RE.match(line) or ANALYSIS_FAILED_RE.match(line)
+                    m = KEEPING_RE.match(line)
                     if m:
                         row["decision"] = m.group("decision")
+
+    # Only one analysis per run makes the decision, others are logged for information
+    for r in rows:
+        r.setdefault("role", "info")
     return rows
 
 
