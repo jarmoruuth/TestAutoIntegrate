@@ -556,6 +556,10 @@ parseLogForErrors(logFilePath)
                      // ImageSolver retries with different settings, a real failure gives a different error
                      continue;
                }
+               if (line.indexOf("Unable to compute a valid scale estimate") >= 0) {
+                     // LocalNormalization fails on a bad image, AutoIntegrate skips the image with a warning
+                     continue;
+               }
                errorIndex += error_txt.length ; // Skip 'Error:'
                if (line.indexOf("FileDataCache::Load(): Corrupted cache data") >= 0) {
                      this.addError("Error in log: " + line.substring(errorIndex) +

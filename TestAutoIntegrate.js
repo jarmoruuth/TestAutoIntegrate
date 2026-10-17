@@ -7,13 +7,10 @@
  */
 
 // All tests
-// run  -a="autotest_tests_default.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
+// run  -a="autotest_tests_default.txt" -a="side_by_side" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
 
 // One test
 // run  -a="autotest_tests1.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
-
-// Show final and reference images side by side in a single image, add argument side_by_side
-// run  -a="autotest_tests_default.txt" -a="side_by_side" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
 
 // Run tests that have no reference images or reference test mode logs, check only
 // processing errors, add argument no_reference. Argument max_lights=<number> uses at most
@@ -175,6 +172,8 @@ loadFinalAndReferenceImages()
          console.writeln("Loading final and reference images for all tests...");
          for (var i = 0; i < this.run_results.length; i++) {
             var run = this.run_results[i];
+            // Errors go to this test, not to the last test that was run
+            this.testutils.name = run.test_name;
             if (run.final_image_file != undefined && run.final_image_file && run.final_image_file != '' && File.exists(run.final_image_file)) {
                let reference_image = File.extractDrive(run.final_image_file) + File.extractDirectory(run.final_image_file) +
                                        "/reference_" + File.extractName(run.final_image_file) + ".xisf";
@@ -218,7 +217,9 @@ loadFinalAndReferenceImages()
                this.testutils.addError("Final image not found for test: " + run.test_name);
             }
          }
+         this.testutils.name = "autotest";
       } catch (e) {
+         this.testutils.name = "autotest";
          this.testutils.addError("Error loading final and reference images: " + e.message);
       }
 }
@@ -231,6 +232,8 @@ loadFinalImages()
          console.writeln("Loading final images for all tests...");
          for (var i = 0; i < this.run_results.length; i++) {
             var run = this.run_results[i];
+            // Errors go to this test, not to the last test that was run
+            this.testutils.name = run.test_name;
             if (run.final_image_file != undefined && run.final_image_file && run.final_image_file != '' && File.exists(run.final_image_file)) {
                console.writeln("Loading final image for test: " + run.test_name);
                let final_img = this.openImageWindowFromFile(run.final_image_file);
@@ -246,7 +249,9 @@ loadFinalImages()
                }
             }
          }
+         this.testutils.name = "autotest";
       } catch (e) {
+         this.testutils.name = "autotest";
          this.testutils.addError("Error loading final images: " + e.message);
       }
 }
