@@ -20,6 +20,11 @@
 // after each test to save disk space, final images and logs in AutoProcessed are kept.
 // run  -a="autotest_skyanalysis.txt" -a="no_reference" -a="max_lights=10" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
 
+// Run from the Windows command line, see testautointegrate.bat. Argument no_dialog closes
+// the progress dialog at the end so --force-exit can exit PixInsight. Test summary is in
+// results/progress.log.
+// "C:\Program Files\PixInsight\bin\PixInsight.exe" --run="C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js,autotest_tests_default.txt,no_dialog" --force-exit
+
 // Calibrate test
 // run  -a="autotest_tests_calibrate.txt" --execute-mode=auto "C:/Users/jarmo_000/GitHub/TestAutoIntegrate/TestAutoIntegrate.js"
 
@@ -58,6 +63,7 @@ constructor() {
    this.max_lights = 0;          // if > 0, use at most this many light files per filter
    this.force_auto_stretching = false; // use Auto image stretching even if explicitly selected
    this.delete_intermediate_files = false;  // delete files in AutoOutput and AutoCalibrated after each test
+   this.no_dialog = false;       // do not leave the progress dialog open at the end
 }
 
 // ============================================================================
@@ -397,6 +403,8 @@ runAllTests() {
                   this.force_auto_stretching = true;
             } else if (Runtime.jsArguments[i] == "delete_intermediate_files") {
                   this.delete_intermediate_files = true;
+            } else if (Runtime.jsArguments[i] == "no_dialog") {
+                  this.no_dialog = true;
             } else if (Runtime.jsArguments[i].startsWith("max_lights=")) {
                   this.max_lights = parseInt(Runtime.jsArguments[i].substring("max_lights=".length));
                   if (isNaN(this.max_lights) || this.max_lights < 0) {
@@ -471,8 +479,13 @@ runAllTests() {
          console.writeln("Encountered " + deleteResult.errors + " errors while deleting old log files.");
       }
 
-      // Dialog stays open for user to review results
-      progressDialog.execute();
+      if (this.no_dialog) {
+         // Close the dialog so the script ends, for example when run from a batch file with --force-exit
+         progressDialog.hide();
+      } else {
+         // Dialog stays open for user to review results
+         progressDialog.execute();
+      }
 }
 
 } // AutoIntegrateTestFullProcessing
